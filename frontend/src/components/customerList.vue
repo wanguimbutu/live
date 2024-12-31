@@ -25,7 +25,8 @@
       <div
         v-for="customer in customers"
         :key="customer.name"
-        class="bg-white p-4 border border-gray-300 rounded-lg shadow hover:shadow-lg transition-transform transform hover:scale-105"
+        class="bg-white p-4 border border-gray-300 rounded-lg shadow hover:shadow-lg transition-transform transform hover:scale-105 cursor-pointer"
+        @click="viewCustomerDetails(customer)"
       >
         <strong class="text-lg font-semibold text-gray-800">{{ customer.customer_name }}</strong>
         <p class="text-gray-600">ID: {{ customer.name }}</p>
@@ -94,11 +95,84 @@
         </form>
       </div>
     </div>
+
+    <!-- Modal for Customer Visit -->
+    <div
+      v-if="showCustomerVisitModal"
+      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+      @click="closeVisitModal"
+    >
+      <div
+        class="bg-white p-6 rounded-lg shadow-lg w-full max-w-md"
+        @click.stop
+      >
+        <h2 class="text-lg font-bold mb-4">Customer Visit</h2>
+        <p class="mb-4">Customer: {{ currentCustomer.customer_name }}</p>
+        <div v-if="visitInProgress" class="space-y-4">
+          <p>Timer: {{ timer }}</p>
+          <button
+            @click="endVisit"
+            class="px-4 py-2 bg-red-500 text-white rounded-lg shadow hover:bg-red-600"
+          >
+            End Visit
+          </button>
+        </div>
+        <div v-else class="space-y-4">
+          <button
+            @click="startVisit"
+            class="px-4 py-2 bg-green-500 text-white rounded-lg shadow hover:bg-green-600"
+          >
+            Start Visit
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal for Feedback -->
+    <div
+      v-if="showFeedbackModal"
+      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+      @click="closeFeedbackModal"
+    >
+      <div
+        class="bg-white p-6 rounded-lg shadow-lg w-full max-w-md"
+        @click.stop
+      >
+        <h2 class="text-lg font-bold mb-4">Provide Feedback</h2>
+        <form @submit.prevent="submitFeedback" class="space-y-4">
+          <div>
+            <label for="feedback" class="block text-sm font-medium text-gray-700">Feedback:</label>
+            <textarea
+              id="feedback"
+              v-model="feedbackText"
+              required
+              class="w-full mt-1 p-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-400"
+              rows="4"
+            ></textarea>
+          </div>
+          <div class="flex justify-end space-x-3">
+            <button
+              type="button"
+              @click="closeFeedbackModal"
+              class="px-4 py-2 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              class="px-4 py-2 bg-blue-500 text-white rounded-lg shadow hover:bg-blue-600"
+            >
+              Submit
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   </div>
 </template>
 
 <script>
-import { ref } from "vue";
+import { ref, reactive } from "vue";
 
 export default {
   name: "CustomerList",
@@ -110,27 +184,26 @@ export default {
     const newCustomer = ref({ name: "", customer_name: "" });
     const limitStart = ref(0);
     const limitPageLength = 10;
+    const showCustomerVisitModal = ref(false);
+    const showFeedbackModal = ref(false);
+    const currentCustomer = ref({});
+    const visitInProgress = ref(false);
+    const timer = ref("00:00");
+    const feedbackText = ref("");
+    let visitInterval = null;
 
-    /**
-     * Fetch customers from the API using fetch().
-     * @param {boolean} isSearch - If true, resets the customers list and applies the search query.
-     */
     const fetchCustomers = async (isSearch = false) => {
       try {
-        const filters = searchQuery.value
-          ? [["customer_name", "like", `%${searchQuery.value}%`]]
-          : [];
-
         const response = await fetch("/api/method/frappe.desk.reportview.get", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             doctype: "Customer",
             fields: ["name", "customer_name"],
             order_by: "creation desc",
-            filters: filters,
+            filters: searchQuery.value
+              ? [["customer_name", "like", `%${searchQuery.value}%`]]
+              : [],
             limit_start: limitStart.value,
             limit_page_length: limitPageLength,
           }),
@@ -142,11 +215,8 @@ export default {
           customer_name: val[1],
         })) || [];
 
-        if (isSearch) {
-          customers.value = fetchedCustomers;
-        } else {
-          customers.value = [...customers.value, ...fetchedCustomers];
-        }
+        if (isSearch) customers.value = fetchedCustomers;
+        else customers.value = [...customers.value, ...fetchedCustomers];
 
         hasMore.value = fetchedCustomers.length >= limitPageLength;
         if (!isSearch) limitStart.value += limitPageLength;
@@ -155,59 +225,82 @@ export default {
       }
     };
 
-    /**
-     * Load more customers for pagination.
-     */
-    const loadMore = () => {
-      fetchCustomers();
-    };
+    const loadMore = () => fetchCustomers();
 
-    /**
-     * Handle search input and apply filters.
-     */
     const handleSearch = () => {
       limitStart.value = 0;
       hasMore.value = true;
       fetchCustomers(true);
     };
 
-    /**
-     * Add a new customer using fetch().
-     */
     const addCustomer = async () => {
       try {
-        const response = await fetch("/api/resource/Customer", {
+        await fetch("/api/resource/Customer", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify(newCustomer.value),
         });
-
-        if (response.ok) {
-          alert("Customer created successfully");
-          newCustomer.value = { name: "", customer_name: "" };
-          showAddCustomerModal.value = false;
-          limitStart.value = 0;
-          customers.value = [];
-          fetchCustomers();
-        } else {
-          alert("Failed to create customer.");
-        }
+        alert("Customer created successfully");
+        newCustomer.value = { name: "", customer_name: "" };
+        showAddCustomerModal.value = false;
+        fetchCustomers();
       } catch (error) {
-        console.error("Error adding customer:", error);
         alert("Failed to create customer.");
+        console.error(error);
       }
     };
 
-    /**
-     * Close the add customer modal.
-     */
-    const closeModal = () => {
-      showAddCustomerModal.value = false;
+    const closeModal = () => (showAddCustomerModal.value = false);
+
+    const viewCustomerDetails = (customer) => {
+      currentCustomer.value = customer;
+      showCustomerVisitModal.value = true;
     };
 
-    // Initial fetch of customers
+    const closeVisitModal = () => (showCustomerVisitModal.value = false);
+
+    const startVisit = () => {
+      visitInProgress.value = true;
+      timer.value = "00:00";
+      let seconds = 0;
+      visitInterval = setInterval(() => {
+        seconds++;
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        timer.value = `${mins.toString().padStart(2, "0")}:${secs
+          .toString()
+          .padStart(2, "0")}`;
+      }, 1000);
+    };
+
+    const endVisit = () => {
+      clearInterval(visitInterval);
+      showFeedbackModal.value = true;
+    };
+
+    const submitFeedback = async () => {
+      try {
+        await fetch("/api/resource/Customer Visits", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            customer: currentCustomer.value.name,
+            feedback: feedbackText.value,
+            duration: timer.value,
+          }),
+        });
+        alert("Visit recorded successfully");
+        visitInProgress.value = false;
+        showCustomerVisitModal.value = false;
+        showFeedbackModal.value = false;
+      } catch (error) {
+        alert("Failed to record visit.");
+        console.error(error);
+      }
+    };
+
+    const closeFeedbackModal = () => (showFeedbackModal.value = false);
+
     fetchCustomers();
 
     return {
@@ -220,6 +313,18 @@ export default {
       handleSearch,
       addCustomer,
       closeModal,
+      showCustomerVisitModal,
+      currentCustomer,
+      viewCustomerDetails,
+      closeVisitModal,
+      startVisit,
+      endVisit,
+      visitInProgress,
+      timer,
+      showFeedbackModal,
+      feedbackText,
+      submitFeedback,
+      closeFeedbackModal,
     };
   },
 };
