@@ -10,7 +10,7 @@
       <button
         class="w-full flex justify-between items-center px-6 py-4 hover:bg-gray-50"
         type="button"
-        @click="$router.push('/create-sales-order')"
+        @click="$router.push('/add-sales-order')"
       >
         <div>
           <h3 class="text-base font-semibold text-gray-800">Create Sales Order</h3>
@@ -21,7 +21,7 @@
       <button
         class="w-full flex justify-between items-center px-6 py-4 hover:bg-gray-50"
         type="button"
-        @click="$router.push('/view-attendance')"
+        @click="$router.push('/attendance')"
       >
         <div>
           <h3 class="text-base font-semibold text-gray-800">View Attendance</h3>
