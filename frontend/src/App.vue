@@ -1,6 +1,7 @@
 <template>
   <ion-app>
     <ion-router-outlet></ion-router-outlet>
+    <InstallButton/>
   </ion-app>
 </template>
 
@@ -10,9 +11,12 @@
   import { defineComponent } from 'vue';
 
   import Tabs from './components/tabs.vue';
+import InstallButton from './components/InstallButton.vue';
 
   export default defineComponent({
     name: 'App',
-    components: { IonApp, IonRouterOutlet },
+    components: { IonApp, IonRouterOutlet,
+      InstallButton
+    },
   });
 </script>
