@@ -1,23 +1,25 @@
 {
   "name": "frappe-ui-frontend",
-  "private": true,
   "version": "0.0.0",
+  "private": true,
   "scripts": {
-    "dev": "vite",
     "build": "vite build --base=/assets/live/frontend/ && yarn copy-html-entry",
-    "preview": "vite preview",
-    "copy-html-entry": "cp ../live/public/frontend/index.html ../live/www/frontend.html"
+    "copy-html-entry": "cp ../live/public/frontend/index.html ../live/www/frontend.html",
+    "dev": "vite",
+    "preview": "vite preview"
   },
   "dependencies": {
     "@ionic/vue": "^8.4.1",
     "@ionic/vue-router": "^8.4.1",
     "feather-icons": "^4.29.2",
     "frappe-ui": "^0.1.72",
+    "register-service-worker": "^1.7.2",
     "vue": "^3.5.12",
     "vue-router": "^4.4.5"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.1.4",
+    "@vue/cli-plugin-pwa": "~5.0.0",
     "autoprefixer": "^10.4.2",
     "postcss": "^8.4.5",
     "tailwindcss": "^3.4.14",

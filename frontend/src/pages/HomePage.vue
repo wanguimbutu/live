@@ -21,9 +21,9 @@
 
 <script lang="ts">
   import { IonHeader, IonToolbar, IonTitle, IonContent, IonPage } from '@ionic/vue';
-import CheckIn from '@/components/CheckIn.vue'
-import QuickLinks from '@/components/QuickLinks.vue'
-import Profile from '@/components/profile.vue'
+import CheckIn from '../components/CheckIn.vue'
+import QuickLinks from '../components/QuickLinks.vue'
+import Profile from '../components/profile.vue'
   export default {
     components: { IonHeader, IonToolbar, IonTitle, IonContent, IonPage,CheckIn,QuickLinks, Profile},
   };

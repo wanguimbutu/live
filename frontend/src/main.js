@@ -31,6 +31,7 @@ import '@ionic/vue/css/flex-utils.css';
 import '@ionic/vue/css/display.css';
 
 
+
 setConfig('resourceFetcher', frappeRequest)
 
 const app = createApp(App).use(IonicVue).use(router);
@@ -49,16 +50,3 @@ router.isReady().then(() => {
   app.mount('#app');
 });
 
-
-if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => {
-    navigator.serviceWorker
-      .register("/service-worker.js")
-      .then((registration) => {
-        console.log("Service Worker registered: ", registration);
-      })
-      .catch((registrationError) => {
-        console.log("Service Worker registration failed: ", registrationError);
-      });
-  });
-}
