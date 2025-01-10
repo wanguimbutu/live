@@ -2,18 +2,18 @@
     "name": "Live App",
     "short_name": "Live",
     "description": "A live app for real-time updates.",
-    "start_url": "/",
+    "start_url": "/frontend/homePage",
     "display": "standalone",
     "background_color": "#ffffff",
     "theme_color": "#000000",
     "icons": [
         {
-            "src": "/icons/icon-192x192.png",
+            "src": "/logo.png",
             "sizes": "192x192",
             "type": "image/png"
         },
         {
-            "src": "/icons/icon-512x512.png",
+            "src": "/logo.png",
             "sizes": "512x512",
             "type": "image/png"
         }
