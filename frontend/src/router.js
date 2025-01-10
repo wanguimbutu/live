@@ -19,7 +19,7 @@ const routes = [
     component: Tabs,
     children:[
       {
-        path:'/frontend',
+        path:'/frontend/homepage',
         redirect:'/homePage'
       },
       {
