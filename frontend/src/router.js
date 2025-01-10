@@ -42,7 +42,13 @@ const routes = [
         path: '/add-sales-order',
         name: 'AddSalesOrder',
         component: () => import('@/pages/AddSalesOrder.vue'),
-      }
+      },
+      {
+        path: '/order/:id',
+        name: 'OrderDetails',
+        component: () => import('@/components/OrderDetails.vue'), // Adjust the path as needed
+        props: true,
+      },
     ]
   }
 ]
