@@ -90,7 +90,7 @@ export default {
 
         session.logout.submit();
         alert("Logged out successfully");
-        this.$router.push({ name: "Home" });
+        this.$router.push({ name: "Login" });
       } catch (error) {
         console.error("Logout failed:", error);
         alert("Failed to logout. Please try again.");

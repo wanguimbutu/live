@@ -1,1 +1,1 @@
-{"name":"frappe-ui-frontend","short_name":"frappe-ui-frontend","start_url":"/assets/live/frontend/","display":"standalone","background_color":"#ffffff","lang":"en","scope":"/assets/live/frontend/"}
+{"name":"frappe live","short_name":"Live","start_url":"/frontend/homePage","display":"standalone","background_color":"#ffffff","lang":"en","scope":"/frontend"}
