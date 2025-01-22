@@ -40,7 +40,7 @@ const routes = [
       },
       {
         path: '/add-sales-order',
-        name: 'AddSalesOrder',
+        //name: 'AddSalesOrder',
         component: () => import('@/pages/AddSalesOrder.vue'),
       },
       {

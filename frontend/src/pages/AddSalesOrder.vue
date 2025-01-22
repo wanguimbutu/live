@@ -1,4 +1,5 @@
 <template>
+  <ion-page>
   <div class="container mx-auto p-6 max-w-md">
     <h1 class="text-2xl font-bold mb-4">Create New Sales Order</h1>
     <form @submit.prevent="createSalesOrder" class="space-y-4">
@@ -125,10 +126,16 @@
       </div>
     </form>
   </div>
+  </ion-page>
 </template>
 
 <script>
+import { IonPage } from '@ionic/vue';
+
 export default {
+  components: {
+    IonPage,
+  },
   data() {
     return {
       customers: [],
