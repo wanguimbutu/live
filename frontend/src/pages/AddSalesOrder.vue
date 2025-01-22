@@ -178,9 +178,9 @@ export default {
         }
 
         const data = await response.json();
-        console.log("Sales Order created successfully:", data);
+        console.log("Sales Order saved successfully:", data);
         alert("Sales Order saved successfully!");
-        this.newSalesOrder.id = data.data.name; // Save the ID for future actions
+        this.newSalesOrder.id = data.data.name; // Save the ID for further actions
       } catch (error) {
         console.error("Error creating Sales Order:", error);
         alert("Failed to save Sales Order. Please try again.");
@@ -195,7 +195,7 @@ export default {
         const response = await fetch(`/api/resource/Sales Order/${this.newSalesOrder.id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ status: "Submitted" }),
+          body: JSON.stringify({ docstatus: 1 }),
         });
 
         if (!response.ok) {
@@ -218,7 +218,7 @@ export default {
         const response = await fetch(`/api/resource/Sales Order/${this.newSalesOrder.id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ status: "Canceled" }),
+          body: JSON.stringify({ docstatus: 2 }), // docstatus: 2 indicates canceled
         });
 
         if (!response.ok) {
