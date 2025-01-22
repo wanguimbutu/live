@@ -116,6 +116,14 @@
           >
             End Visit
           </button>
+          <!-- Capture location button -->
+          <button
+            @click="captureLocation"
+            class="px-4 py-2 bg-blue-500 text-white rounded-lg shadow hover:bg-blue-600"
+          >
+            Capture Location
+          </button>
+          <p v-if="locationCaptured">Location: {{ capturedLocation }}</p>
         </div>
         <div v-else class="space-y-4">
           <button
@@ -191,6 +199,8 @@ export default {
     const timer = ref("00:00");
     const feedbackText = ref("");
     let visitInterval = null;
+    const capturedLocation = ref("");
+    const locationCaptured = ref(false);
 
     const fetchCustomers = async (isSearch = false) => {
       try {
@@ -301,6 +311,20 @@ export default {
 
     const closeFeedbackModal = () => (showFeedbackModal.value = false);
 
+    const captureLocation = () => {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition((position) => {
+          capturedLocation.value = `Latitude: ${position.coords.latitude}, Longitude: ${position.coords.longitude}`;
+          locationCaptured.value = true;
+        }, (error) => {
+          console.error("Error capturing location:", error);
+          alert("Failed to capture location.");
+        });
+      } else {
+        alert("Geolocation is not supported by this browser.");
+      }
+    };
+
     fetchCustomers();
 
     return {
@@ -325,6 +349,9 @@ export default {
       feedbackText,
       submitFeedback,
       closeFeedbackModal,
+      captureLocation,
+      capturedLocation,
+      locationCaptured,
     };
   },
 };
