@@ -11,12 +11,12 @@
   import { defineComponent } from 'vue';
 
   import Tabs from './components/tabs.vue';
-import InstallButton from './components/InstallButton.vue';
+//import InstallButton from './components/InstallButton.vue';
 
   export default defineComponent({
     name: 'App',
     components: { IonApp, IonRouterOutlet,
-      InstallButton
+      
     },
   });
 </script>

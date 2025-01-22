@@ -1,242 +1,244 @@
 <template>
-  <ion-page>
-    <ion-header>
-      <ion-toolbar>
-        <ion-title>Create Sales Order</ion-title>
-      </ion-toolbar>
-    </ion-header>
+  <div class="container mx-auto p-6 max-w-md">
+    <h1 class="text-2xl font-bold mb-4">Create New Sales Order</h1>
+    <form @submit.prevent="createSalesOrder" class="space-y-4">
+      <!-- Customer Selection -->
+      <div>
+        <label for="customer" class="block text-sm font-medium text-gray-700">Select Customer:</label>
+        <select
+          id="customer"
+          v-model="newSalesOrder.customer"
+          required
+          class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-sm focus:ring-blue-500 focus:border-blue-500"
+        >
+          <option value="" disabled>Select a customer</option>
+          <option v-for="customer in customers" :key="customer.name" :value="customer.name">
+            {{ customer.customer_name || customer.name }}
+          </option>
+        </select>
+      </div>
 
-    <ion-content>
-      <ion-card>
-        <ion-card-header>
-          <ion-card-title>Create New Sales Order</ion-card-title>
-        </ion-card-header>
-
-        <ion-card-content>
-          <!-- Form -->
-          <form @submit.prevent>
-            <!-- Customer Selection -->
-            <div class="form-group">
-              <frappe-ui-autocomplete
-                label="Customer"
-                v-model="form.customer"
-                :options="customers"
-                item-text="label"
-                item-value="value"
-                placeholder="Select Customer"
-                @click.native.stop="logEvent('Customer dropdown clicked')"
-                @keydown.native.stop="logEvent('Customer dropdown keydown')"
-                required
-              />
-            </div>
-
-            <!-- Item Selection -->
-            <div class="form-group">
-              <frappe-ui-autocomplete
-                label="Item"
-                v-model="form.item"
-                :options="items"
-                item-text="label"
-                item-value="value"
-                placeholder="Select Item"
-                @click.native.stop="logEvent('Item dropdown clicked')"
-                @keydown.native.stop="logEvent('Item dropdown keydown')"
-                required
-              />
-            </div>
-
-            <!-- Quantity -->
-            <div class="form-group">
-              <ion-item>
-                <ion-label position="stacked">Quantity</ion-label>
-                <ion-input
-                  type="number"
-                  v-model.number="form.quantity"
-                  placeholder="Enter quantity"
-                  required
-                />
-              </ion-item>
-            </div>
-
-            <!-- Delivery Date -->
-            <div class="form-group">
-              <frappe-ui-datepicker
-                label="Delivery Date"
-                v-model="form.deliveryDate"
-                placeholder="Select delivery date"
-                required
-              />
-            </div>
-          </form>
-
-          <!-- Submit Button -->
-          <div class="form-actions">
-            <ion-button
-              expand="block"
-              color="primary"
-              @click="createSalesOrder"
+      <!-- Items Selection -->
+      <div>
+        <label for="items" class="block text-sm font-medium text-gray-700">Add Items:</label>
+        <div v-for="(item, index) in newSalesOrder.items" :key="index" class="mb-4 border p-4 rounded-md">
+          <div class="flex space-x-2 mb-2">
+            <select
+              v-model="item.item_code"
+              required
+              class="flex-1 border border-gray-300 rounded-md shadow-sm p-2 text-sm focus:ring-blue-500 focus:border-blue-500"
             >
-              Create Sales Order
-            </ion-button>
+              <option value="" disabled>Select an item</option>
+              <option v-for="itemOption in items" :key="itemOption.name" :value="itemOption.name">
+                {{ itemOption.item_name || itemOption.name }}
+              </option>
+            </select>
+            <input
+              v-model.number="item.qty"
+              type="number"
+              placeholder="Qty"
+              required
+              min="1"
+              class="w-20 border border-gray-300 rounded-md shadow-sm p-2 text-sm focus:ring-blue-500 focus:border-blue-500"
+            />
+            <input
+              v-model.number="item.rate"
+              type="number"
+              placeholder="Rate"
+              required
+              min="0"
+              class="w-28 border border-gray-300 rounded-md shadow-sm p-2 text-sm focus:ring-blue-500 focus:border-blue-500"
+            />
           </div>
-        </ion-card-content>
-      </ion-card>
-    </ion-content>
-  </ion-page>
+          <!-- Warehouse Selection -->
+          <div>
+            <label for="warehouse" class="block text-sm font-medium text-gray-700">Delivery Warehouse:</label>
+            <select
+              v-model="item.warehouse"
+              required
+              class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-sm focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="" disabled>Select a warehouse</option>
+              <option v-for="warehouse in warehouses" :key="warehouse.name" :value="warehouse.name">
+                {{ warehouse.warehouse_name || warehouse.name }}
+              </option>
+            </select>
+          </div>
+          <button
+            type="button"
+            @click="removeItem(index)"
+            class="mt-2 text-red-500 font-bold"
+          >
+            Remove Item
+          </button>
+        </div>
+        <button
+          type="button"
+          @click="addItem"
+          class="text-blue-500 font-bold"
+        >
+          + Add Item
+        </button>
+      </div>
+
+      <!-- Delivery Date -->
+      <div>
+        <label for="delivery_date" class="block text-sm font-medium text-gray-700">Delivery Date:</label>
+        <input
+          id="delivery_date"
+          v-model="newSalesOrder.delivery_date"
+          type="date"
+          required
+          class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-sm focus:ring-blue-500 focus:border-blue-500"
+        />
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="flex space-x-4">
+        <button
+          type="submit"
+          class="bg-blue-600 text-white px-4 py-2 rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+        >
+          Save Order
+        </button>
+        <button
+          type="button"
+          @click="submitSalesOrder"
+          class="bg-green-600 text-white px-4 py-2 rounded-md shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+        >
+          Submit Order
+        </button>
+        <button
+          type="button"
+          @click="cancelSalesOrder"
+          class="bg-red-600 text-white px-4 py-2 rounded-md shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+        >
+          Cancel Order
+        </button>
+        <button
+          type="button"
+          @click="navigateBack"
+          class="bg-gray-300 text-gray-700 px-4 py-2 rounded-md shadow-sm hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400"
+        >
+          Back
+        </button>
+      </div>
+    </form>
+  </div>
 </template>
 
 <script>
-import {
-  Autocomplete as FrappeUiAutocomplete,
-  DatePicker as FrappeUiDatePicker,
-} from "frappe-ui";
-import {
-  IonPage,
-  IonContent,
-  IonCard,
-  IonCardContent,
-  IonInput,
-  IonLabel,
-  IonItem,
-  IonButton,
-  IonCardTitle,
-  IonCardHeader,
-  IonToolbar,
-  IonTitle,
-  IonHeader,
-} from "@ionic/vue";
-
 export default {
-  components: {
-    "frappe-ui-autocomplete": FrappeUiAutocomplete,
-    "frappe-ui-datepicker": FrappeUiDatePicker,
-    IonPage,
-    IonCard,
-    IonCardContent,
-    IonContent,
-    IonInput,
-    IonItem,
-    IonLabel,
-    IonButton,
-    IonCardTitle,
-    IonCardHeader,
-    IonHeader,
-    IonTitle,
-    IonToolbar,
-  },
   data() {
     return {
       customers: [],
       items: [],
-      form: {
+      warehouses: [],
+      newSalesOrder: {
         customer: "",
-        item: "",
-        quantity: 1,
-        deliveryDate: "",
+        items: [{ item_code: "", qty: 1, rate: 0, warehouse: "" }],
+        delivery_date: "",
       },
     };
   },
-  created() {
-    this.fetchCustomers();
-    this.fetchItems();
+  async created() {
+    try {
+      const customerResponse = await fetch("/api/resource/Customer");
+      const customerData = await customerResponse.json();
+      this.customers = customerData.data;
+
+      const itemResponse = await fetch("/api/resource/Item");
+      const itemData = await itemResponse.json();
+      this.items = itemData.data;
+
+      const warehouseResponse = await fetch("/api/resource/Warehouse");
+      const warehouseData = await warehouseResponse.json();
+      this.warehouses = warehouseData.data;
+    } catch (error) {
+      console.error("Error fetching data from ERPNext:", error);
+    }
   },
   methods: {
-    logEvent(eventDescription) {
-      console.log(eventDescription);
+    addItem() {
+      this.newSalesOrder.items.push({ item_code: "", qty: 1, rate: 0, warehouse: "" });
     },
-
-    async fetchCustomers() {
-      try {
-        const response = await fetch("/api/method/frappe.desk.reportview.get", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            doctype: "Customer",
-            fields: ["name", "customer_name"],
-          }),
-        });
-
-        const data = await response.json();
-        this.customers = data.message.values.map(([name, customer_name]) => ({
-          label: customer_name,
-          value: name,
-        }));
-      } catch (error) {
-        console.error("Error fetching customers:", error);
-      }
+    removeItem(index) {
+      this.newSalesOrder.items.splice(index, 1);
     },
-
-    async fetchItems() {
-      try {
-        const response = await fetch("/api/method/frappe.desk.reportview.get", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            doctype: "Item",
-            fields: ["name", "item_name"],
-          }),
-        });
-
-        const data = await response.json();
-        this.items = data.message.values.map(([name, item_name]) => ({
-          label: item_name,
-          value: name,
-        }));
-      } catch (error) {
-        console.error("Error fetching items:", error);
-      }
-    },
-
     async createSalesOrder() {
       try {
-        const payload = {
-          doctype: "Sales Order",
-          customer: this.form.customer,
-          items: [
-            {
-              item_code: this.form.item,
-              qty: this.form.quantity,
-            },
-          ],
-          delivery_date: this.form.deliveryDate,
-        };
-
         const response = await fetch("/api/resource/Sales Order", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(payload),
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(this.newSalesOrder),
         });
 
-        const result = await response.json();
-        console.log("Sales Order Created:", result);
-        alert("Sales Order created successfully!");
-        this.$router.push("/salesOrderList");
+        if (!response.ok) {
+          throw new Error(`Failed to create Sales Order: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        console.log("Sales Order created successfully:", data);
+        alert("Sales Order saved successfully!");
+        this.newSalesOrder.id = data.data.name; // Save the ID for future actions
       } catch (error) {
         console.error("Error creating Sales Order:", error);
-        alert("Failed to create Sales Order. Please try again.");
+        alert("Failed to save Sales Order. Please try again.");
       }
+    },
+    async submitSalesOrder() {
+      if (!this.newSalesOrder.id) {
+        alert("Please save the order first.");
+        return;
+      }
+      try {
+        const response = await fetch(`/api/resource/Sales Order/${this.newSalesOrder.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "Submitted" }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to submit Sales Order: ${response.statusText}`);
+        }
+
+        console.log("Sales Order submitted successfully.");
+        alert("Sales Order submitted successfully!");
+      } catch (error) {
+        console.error("Error submitting Sales Order:", error);
+        alert("Failed to submit Sales Order. Please try again.");
+      }
+    },
+    async cancelSalesOrder() {
+      if (!this.newSalesOrder.id) {
+        alert("Please save the order first.");
+        return;
+      }
+      try {
+        const response = await fetch(`/api/resource/Sales Order/${this.newSalesOrder.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "Canceled" }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to cancel Sales Order: ${response.statusText}`);
+        }
+
+        console.log("Sales Order canceled successfully.");
+        alert("Sales Order canceled successfully!");
+      } catch (error) {
+        console.error("Error canceling Sales Order:", error);
+        alert("Failed to cancel Sales Order. Please try again.");
+      }
+    },
+    navigateBack() {
+      this.$router.push({ name: "OrderList" });
     },
   },
 };
 </script>
+
 <style scoped>
-.form-group {
-  margin-bottom: 20px;
-}
-
-.form-actions {
-  margin-top: 30px;
-}
-
-ion-card-title {
-  font-size: 1.4rem;
-  text-align: center;
-  margin-bottom: 10px;
-}
+/* Tailwind CSS handles styling */
 </style>
