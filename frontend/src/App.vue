@@ -1,7 +1,6 @@
 <template>
   <ion-app>
     <ion-router-outlet></ion-router-outlet>
-    <InstallButton/>
   </ion-app>
 </template>
 
