@@ -238,7 +238,7 @@ export default {
       }
     },
     navigateBack() {
-      this.$router.push({ name: "OrderList" });
+      this.$router.push('/salesOrderList');
     },
   },
 };
