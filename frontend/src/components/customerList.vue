@@ -96,45 +96,64 @@
       </div>
     </div>
 
-    <!-- Modal for Customer Visit -->
-    <div
-      v-if="showCustomerVisitModal"
-      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-      @click="closeVisitModal"
-    >
-      <div
-        class="bg-white p-6 rounded-lg shadow-lg w-full max-w-md"
-        @click.stop
-      >
-        <h2 class="text-lg font-bold mb-4">Customer Visit</h2>
-        <p class="mb-4">Customer: {{ currentCustomer.customer_name }}</p>
-        <div v-if="visitInProgress" class="space-y-4">
-          <p>Timer: {{ timer }}</p>
-          <button
-            @click="endVisit"
-            class="px-4 py-2 bg-red-500 text-white rounded-lg shadow hover:bg-red-600"
-          >
-            End Visit
-          </button>
-          <!-- Capture location button -->
-          <button
-            @click="captureLocation"
-            class="px-4 py-2 bg-blue-500 text-white rounded-lg shadow hover:bg-blue-600"
-          >
-            Capture Location
-          </button>
-          <p v-if="locationCaptured">Location: {{ capturedLocation }}</p>
-        </div>
-        <div v-else class="space-y-4">
-          <button
-            @click="startVisit"
-            class="px-4 py-2 bg-green-500 text-white rounded-lg shadow hover:bg-green-600"
-          >
-            Start Visit
-          </button>
-        </div>
+   <!-- Modal for Customer Visit -->
+<div
+  v-if="showCustomerVisitModal"
+  class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+  @click="closeVisitModal"
+>
+  <div
+    class="bg-white p-6 rounded-lg shadow-lg w-full max-w-md"
+    @click.stop
+  >
+    <h2 class="text-lg font-bold mb-4">Customer Visit</h2>
+    <p class="mb-4">Customer: {{ currentCustomer.customer_name }}</p>
+    
+    <div class="space-y-4">
+      <!-- Buttons for Starting and Ending Visit -->
+      <div>
+        <button
+          v-if="!visitInProgress"
+          @click="startVisit"
+          class="px-4 py-2 bg-green-500 text-white rounded-lg shadow hover:bg-green-600"
+        >
+          Start Visit
+        </button>
+        <button
+          v-else
+          @click="endVisit"
+          class="px-4 py-2 bg-red-500 text-white rounded-lg shadow hover:bg-red-600"
+        >
+          End Visit
+        </button>
+      </div>
+
+      <!-- Display Visit Timer -->
+      <div v-if="visitInProgress" class="mt-4">
+        <p class="text-gray-800 font-semibold">Visit Duration: {{ timer }}</p>
+      </div>
+
+      <!-- Capture Location -->
+      <div>
+        <button
+          @click="captureLocationAndSave"
+          class="px-4 py-2 bg-blue-500 text-white rounded-lg shadow hover:bg-blue-600 mt-4"
+        >
+          Capture Location
+        </button>
+      </div>
+
+      <!-- Display location and map -->
+      <div v-if="locationCaptured" class="mt-4">
+        <p>Location: {{ capturedLocation }}</p>
+        <p>Area: {{ capturedArea }}</p>
+        <div id="map" class="h-48 w-full mt-2"></div>
       </div>
     </div>
+  </div>
+</div>
+
+
 
     <!-- Modal for Feedback -->
     <div
@@ -270,23 +289,27 @@ export default {
     const closeVisitModal = () => (showCustomerVisitModal.value = false);
 
     const startVisit = () => {
-      visitInProgress.value = true;
-      timer.value = "00:00";
-      let seconds = 0;
-      visitInterval = setInterval(() => {
-        seconds++;
-        const mins = Math.floor(seconds / 60);
-        const secs = seconds % 60;
-        timer.value = `${mins.toString().padStart(2, "0")}:${secs
-          .toString()
-          .padStart(2, "0")}`;
-      }, 1000);
-    };
+  visitInProgress.value = true;
+  timer.value = "00:00";
+  let seconds = 0;
 
-    const endVisit = () => {
-      clearInterval(visitInterval);
-      showFeedbackModal.value = true;
-    };
+  // Start interval for timer
+  visitInterval = setInterval(() => {
+    seconds++;
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    timer.value = `${mins.toString().padStart(2, "0")}:${secs
+      .toString()
+      .padStart(2, "0")}`;
+  }, 1000);
+};
+
+const endVisit = () => {
+  clearInterval(visitInterval);
+  visitInProgress.value = false;
+  showFeedbackModal.value = true; // Show feedback modal after ending the visit
+};
+
 
     const submitFeedback = async () => {
       try {
@@ -311,19 +334,78 @@ export default {
 
     const closeFeedbackModal = () => (showFeedbackModal.value = false);
 
-    const captureLocation = () => {
+    const capturedArea = ref("");
+
+    const captureLocationAndSave = async () => {
       if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition((position) => {
-          capturedLocation.value = `Latitude: ${position.coords.latitude}, Longitude: ${position.coords.longitude}`;
-          locationCaptured.value = true;
-        }, (error) => {
-          console.error("Error capturing location:", error);
-          alert("Failed to capture location.");
-        });
+        navigator.geolocation.getCurrentPosition(
+          async (position) => {
+            const lat = position.coords.latitude;
+            const lng = position.coords.longitude;
+
+            capturedLocation.value = `Latitude: ${lat}, Longitude: ${lng}`;
+            locationCaptured.value = true;
+
+            // Reverse geocode to get area name
+            const areaName = await reverseGeocode(lat, lng);
+            capturedArea.value = areaName;
+
+            // Save to ERPNext
+            await updateCustomerLocation(lat, lng, areaName);
+
+            // Render map
+            renderMap(lat, lng);
+          },
+          (error) => {
+            console.error("Error capturing location:", error);
+            alert("Failed to capture location.");
+          }
+        );
       } else {
         alert("Geolocation is not supported by this browser.");
       }
     };
+
+    const reverseGeocode = async (lat, lng) => {
+      try {
+        const response = await fetch(
+          `https://api.opencagedata.com/geocode/v1/json?q=${lat}+${lng}&key=b5208eed61654e19bcb89063dab6bf3d`
+        );
+        const data = await response.json();
+        return data.results[0]?.formatted || "Unknown Area";
+      } catch (error) {
+        console.error("Error during reverse geocoding:", error);
+        return "Unknown Area";
+      }
+    };
+
+    const updateCustomerLocation = async (lat, lng, areaName) => {
+      try {
+        await fetch(`/api/resource/Customer/${currentCustomer.value.name}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            custom_customer_location: `${lat}, ${lng}`,
+            custom_area_name: areaName
+          }),
+        });
+        alert("Location saved successfully.");
+      } catch (error) {
+        console.error("Error saving location to ERPNext:", error);
+        alert("Failed to save location.");
+      }
+    };
+
+    const renderMap = (lat, lng) => {
+      const map = L.map("map").setView([lat, lng], 13);
+
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: "© OpenStreetMap contributors",
+      }).addTo(map);
+
+      L.marker([lat, lng]).addTo(map).bindPopup("Customer Location").openPopup();
+    };
+;
 
     fetchCustomers();
 
@@ -349,9 +431,10 @@ export default {
       feedbackText,
       submitFeedback,
       closeFeedbackModal,
-      captureLocation,
+      captureLocationAndSave,
       capturedLocation,
       locationCaptured,
+      capturedArea,
     };
   },
 };

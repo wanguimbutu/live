@@ -1,4 +1,5 @@
 <template>
+  <ion-page>
   <div class="max-w-3xl py-12 mx-auto">
     <h2 class="font-bold text-lg text-gray-600 mb-4">
       Welcome {{ session.user }}!
@@ -20,6 +21,7 @@
     <!-- Dialog -->
     <Dialog title="Title" v-model="showDialog"> Dialog content </Dialog>
   </div>
+  </ion-page>
 </template>
 
 <script setup>
@@ -27,6 +29,7 @@ import { ref } from 'vue'
 import { Dialog } from 'frappe-ui'
 import { createResource } from 'frappe-ui'
 import { session } from '../data/session'
+import { IonPage } from '@ionic/vue'
 
 const ping = createResource({
   url: 'ping',
