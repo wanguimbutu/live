@@ -49,6 +49,10 @@ const routes = [
         component: () => import('@/components/OrderDetails.vue'), // Adjust the path as needed
         props: true,
       },
+      {
+        path: '/add-customer',
+        component: () => import('@/pages/NewCustomer.vue'),
+      }
     ]
   }
 ]

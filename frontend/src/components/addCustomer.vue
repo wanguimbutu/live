@@ -44,8 +44,6 @@
 </template>
 
 <script>
-import axios from "axios";
-
 export default {
   data() {
     return {
@@ -58,12 +56,23 @@ export default {
   methods: {
     async addCustomer() {
       try {
-        const response = await axios.post("/api/resource/Customer", {
-          customer_name: this.newCustomer.customer_name,
-          name: this.newCustomer.name,
+        const response = await fetch("/api/resource/Customer", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            customer_name: this.newCustomer.customer_name,
+            name: this.newCustomer.name,
+          }),
         });
 
-        console.log("Customer created successfully:", response.data);
+        if (!response.ok) {
+          throw new Error(`Failed to create customer: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        console.log("Customer created successfully:", data);
         alert("Customer created successfully!");
 
         // Navigate back to the customer list
@@ -74,12 +83,9 @@ export default {
       }
     },
     navigateBack() {
-      this.$router.push({ name: "CustomerList" });
+      this.$router.push('/customerList');
     },
   },
 };
 </script>
 
-<style scoped>
-/* No additional styles needed as Tailwind CSS handles styling */
-</style>

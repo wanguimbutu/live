@@ -61,6 +61,3 @@ export default defineComponent({
 });
 </script>
 
-<style scoped>
-/* No additional styles needed as Tailwind is used */
-</style>
