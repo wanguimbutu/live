@@ -10,9 +10,6 @@
         <a href="#" class="text-blue-500 hover:underline">View List</a>
       </p>
     </div>
-    <div class="p-4">
-      <p class="text-base text-gray-700">Battery: {{ batteryPercentage }}%</p>
-    </div>
     <div class="flex justify-center bg-gray-100 border-t border-gray-300 p-4">
       <button
         class="px-4 py-2 text-sm font-semibold text-white bg-black rounded hover:bg-gray-800 transition duration-300"
@@ -31,7 +28,6 @@ export default {
   data() {
     return {
       buttonText: "Check In",
-      batteryPercentage: null,
       lastCheckIn: null,
       lastCheckOut: null,
     };
