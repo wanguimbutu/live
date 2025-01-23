@@ -1,5 +1,4 @@
 <template>
-  <ion-page>
   <div class="p-6 relative">
     <h1 class="text-2xl font-bold text-gray-800 mb-6">Sales Orders</h1>
 
@@ -74,14 +73,9 @@
       </svg>
     </button>
   </div>
-</ion-page>
 </template>
 <script>
-import { IonPage } from '@ionic/vue';
 export default {
-  components: {
-    IonPage,
-  },
   data() {
     return {
       salesOrders: [],

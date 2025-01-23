@@ -1,19 +1,29 @@
+<style scoped>
+  .example-content {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+  }
+</style>
+
 <template>
-    <ion-page>
-      <ion-content>
-        <OrderList/>
-      </ion-content>
-    </ion-page>
-  </template>
-  
-  <script>
-   import {IonPage,IonContent} from '@ionic/vue'
-   import OrderList from '../components/OrderList.vue';
-  
-   export default{
-    components:{
-      OrderList,IonContent,IonPage
-      
-    }
-   }
-  </script>
+  <ion-page>
+    <ion-header>
+      <ion-toolbar>
+        <ion-title>Sales Orders</ion-title>
+      </ion-toolbar>
+    </ion-header>
+    <ion-content>
+        <OrderList name="orderList"/>
+    </ion-content>
+  </ion-page>
+</template>
+
+<script lang="ts">
+  import { IonHeader, IonToolbar, IonTitle, IonContent, IonPage } from '@ionic/vue';
+import OrderList from '../components/OrderList.vue';
+  export default {
+    components: { IonHeader, IonToolbar, IonTitle, IonContent, IonPage,OrderList },
+  };
+</script>
