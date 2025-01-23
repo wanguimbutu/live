@@ -39,16 +39,7 @@
         <span class="text-gray-500 text-xl">&gt;</span>
       </button>
 
-      <button
-        class="w-full flex justify-between items-center px-6 py-4 hover:bg-gray-50"
-        type="button"
-        @click="$router.push('/capture-customer-location')"
-      >
-        <div>
-          <h3 class="text-base font-semibold text-gray-800">Capture Customer Location</h3>
-        </div>
-        <span class="text-gray-500 text-xl">&rsaquo;</span>
-      </button>
+      
     </div>
   </div>
 </template>
