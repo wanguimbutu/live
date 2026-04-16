@@ -33,8 +33,8 @@ onMounted(() => {
       } else {
         router.replace({ name: 'Login' })
       }
-    }, 400)
-  }, 1200)
+    }, 300)
+  }, 400)
 })
 </script>
 

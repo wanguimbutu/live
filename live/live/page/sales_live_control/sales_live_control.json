@@ -1,0 +1,14 @@
+{
+ "doctype": "Page",
+ "module": "Live",
+ "name": "sales-live-control",
+ "page_name": "sales-live-control",
+ "standard": "Yes",
+ "system_page": 0,
+ "title": "Sales Live Control",
+ "roles": [
+  {
+   "role": "System Manager"
+  }
+ ]
+}

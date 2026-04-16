@@ -1,3 +1,3 @@
-var m=(n,o,e)=>new Promise((s,i)=>{var d=t=>{try{r(e.next(t))}catch(a){i(a)}},c=t=>{try{r(e.throw(t))}catch(a){i(a)}},r=t=>t.done?s(t.value):Promise.resolve(t.value).then(d,c);r((e=e.apply(n,o)).next())});import{W as p,Q as w,R as f,S as l,T as y}from"./index-DiwewXWH.js";/*!
+var m=(n,o,e)=>new Promise((s,i)=>{var d=t=>{try{r(e.next(t))}catch(a){i(a)}},c=t=>{try{r(e.throw(t))}catch(a){i(a)}},r=t=>t.done?s(t.value):Promise.resolve(t.value).then(d,c);r((e=e.apply(n,o)).next())});import{W as p,U as w,V as f,X as l,Y as y}from"./index-CfzJwO39.js";/*!
  * (C) Ionic http://ionicframework.com - MIT License
  */const u=()=>{const n=window;n.addEventListener("statusTap",()=>{p(()=>{const o=document.elementFromPoint(n.innerWidth/2,n.innerHeight/2);if(!o)return;const e=w(o);e&&new Promise(s=>f(e,s)).then(()=>{l(()=>m(void 0,null,function*(){e.style.setProperty("--overflow","hidden"),yield y(e,300),e.style.removeProperty("--overflow")}))})})})};export{u as startStatusTap};
