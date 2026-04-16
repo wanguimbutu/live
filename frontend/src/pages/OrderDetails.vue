@@ -1,29 +1,12 @@
-<style scoped>
-  .example-content {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 100%;
-  }
-</style>
-
 <template>
   <ion-page>
-    <ion-header>
-      <ion-toolbar>
-        <ion-title>Order</ion-title>
-      </ion-toolbar>
-    </ion-header>
-    <ion-content>
-        <OrderDetails name="orderDetails"/>
+    <ion-content :fullscreen="true">
+      <OrderDetails />
     </ion-content>
   </ion-page>
 </template>
 
-<script lang="ts">
-  import { IonHeader, IonToolbar, IonTitle, IonContent, IonPage } from '@ionic/vue';
-import OrderDetails from '../components/OrderDetails.vue';
-  export default {
-    components: { IonHeader, IonToolbar, IonTitle, IonContent, IonPage,OrderDetails },
-  };
+<script setup>
+import { IonContent, IonPage } from '@ionic/vue'
+import OrderDetails from '../components/OrderDetails.vue'
 </script>

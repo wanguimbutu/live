@@ -1,29 +1,17 @@
-<style scoped>
-  .example-content {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 100%;
-  }
-</style>
-
 <template>
   <ion-page>
     <ion-header>
       <ion-toolbar>
-        <ion-title></ion-title>
+        <ion-title>Attendance</ion-title>
       </ion-toolbar>
     </ion-header>
-    <ion-content>
-        <UserStatus name="userStatus"/>
+    <ion-content :fullscreen="true">
+      <UserStatus />
     </ion-content>
   </ion-page>
 </template>
 
-<script lang="ts">
-  import { IonHeader, IonToolbar, IonTitle, IonContent, IonPage } from '@ionic/vue';
-  import UserStatus from '../components/userStatus.vue';
-  export default {
-    components: { IonHeader, IonToolbar, IonTitle, IonContent, IonPage,UserStatus },
-  };
+<script setup>
+import { IonHeader, IonToolbar, IonTitle, IonContent, IonPage } from '@ionic/vue'
+import UserStatus from '../components/userStatus.vue'
 </script>
