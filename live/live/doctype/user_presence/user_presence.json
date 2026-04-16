@@ -1,0 +1,114 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "field:user",
+ "creation": "2026-04-16 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "user",
+  "last_seen",
+  "is_active",
+  "column_break_1",
+  "latitude",
+  "longitude",
+  "accuracy",
+  "section_battery",
+  "battery_level",
+  "is_charging"
+ ],
+ "fields": [
+  {
+   "fieldname": "user",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "User",
+   "options": "User",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "last_seen",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Last Seen"
+  },
+  {
+   "default": "1",
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Active"
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "latitude",
+   "fieldtype": "Float",
+   "label": "Latitude",
+   "precision": "8"
+  },
+  {
+   "fieldname": "longitude",
+   "fieldtype": "Float",
+   "label": "Longitude",
+   "precision": "8"
+  },
+  {
+   "fieldname": "accuracy",
+   "fieldtype": "Float",
+   "label": "GPS Accuracy (m)",
+   "precision": "1"
+  },
+  {
+   "fieldname": "section_battery",
+   "fieldtype": "Section Break",
+   "label": "Battery"
+  },
+  {
+   "fieldname": "battery_level",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Battery %"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_charging",
+   "fieldtype": "Check",
+   "label": "Charging"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-04-16 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Live",
+ "name": "User Presence",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "read": 1,
+   "role": "All",
+   "write": 1
+  }
+ ],
+ "sort_field": "last_seen",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 0
+}

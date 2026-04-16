@@ -2,6 +2,7 @@
   "name": "frappe-live",
   "version": "0.0.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "build": "vite build --base=/assets/live/frontend/ && yarn copy-html-entry",
     "copy-html-entry": "cp ../live/public/frontend/index.html ../live/www/frontend.html",

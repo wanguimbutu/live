@@ -2,6 +2,28 @@
   <div class="p-6 relative">
     <h1 class="text-2xl font-bold text-gray-800 mb-6">Sales Orders</h1>
 
+    <!-- Offline queue section -->
+    <div v-if="queue.length > 0" class="mb-6">
+      <h2 class="text-sm font-semibold text-amber-700 uppercase tracking-wide mb-2">
+        Pending sync ({{ queue.length }})
+      </h2>
+      <div
+        v-for="entry in queue"
+        :key="entry.id"
+        class="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 mb-2"
+      >
+        <div>
+          <p class="text-sm font-semibold text-gray-800">{{ entry.order.customer || 'Unknown customer' }}</p>
+          <p class="text-xs text-gray-500">{{ entry.order.items?.length || 0 }} item(s) · saved {{ formatSavedAt(entry.savedAt) }}</p>
+          <p v-if="entry.status === 'failed'" class="text-xs text-red-600 mt-0.5">Sync failed — will retry</p>
+        </div>
+        <span class="text-xs font-medium px-2 py-1 rounded-full"
+          :class="entry.status === 'failed' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'">
+          {{ entry.status === 'syncing' ? 'Syncing…' : 'Offline' }}
+        </span>
+      </div>
+    </div>
+
     <!-- Search Bars -->
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
       <!-- Search by Customer Name -->
@@ -75,18 +97,31 @@
   </div>
 </template>
 <script>
+import { useOfflineQueue } from '../composables/useOfflineQueue'
+
 export default {
+  setup() {
+    const { queue } = useOfflineQueue()
+    return { queue }
+  },
   data() {
     return {
       salesOrders: [],
       limitStart: 0,
       limitPageLength: 10,
       hasMore: true,
-      customerSearchQuery: "", // For searching by customer name
-      salesOrderSearchQuery: "", // For searching by sales order name
+      customerSearchQuery: "",
+      salesOrderSearchQuery: "",
     };
   },
   methods: {
+    formatSavedAt(iso) {
+      if (!iso) return ''
+      const diff = Math.round((Date.now() - new Date(iso)) / 60000)
+      if (diff < 1) return 'just now'
+      if (diff < 60) return `${diff}m ago`
+      return `${Math.round(diff / 60)}h ago`
+    },
     async fetchSalesOrders(filters = [], isSearch = false) {
       try {
         const payload = {

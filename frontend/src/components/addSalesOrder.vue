@@ -1,6 +1,23 @@
 <template>
     <div class="container mx-auto p-6 max-w-md">
       <h1 class="text-2xl font-bold mb-4">Create New Sales Order</h1>
+
+      <!-- Offline notice -->
+      <div v-if="!isOnline" class="mb-4 flex items-center gap-2 rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="shrink-0">
+          <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+        You're offline. Orders saved here will sync automatically when you reconnect.
+      </div>
+
+      <!-- Saved feedback -->
+      <div v-if="savedOffline" class="mb-4 flex items-center gap-2 rounded-lg bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-800">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="shrink-0">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+        Order saved offline. It will sync when you're back online.
+      </div>
+
       <form @submit.prevent="createSalesOrder" class="space-y-4">
         <!-- Customer Selection -->
         <div>
@@ -128,64 +145,98 @@
 </template>
   
 <script>
-    export default {
-      data() {
-      return {
-        customers: [],
-        items: [],
-        warehouses: [],
-        newSalesOrder: {
+import { useOfflineQueue, addToQueue } from '../composables/useOfflineQueue'
+
+export default {
+  setup() {
+    const { isOnline } = useOfflineQueue()
+    return { isOnline }
+  },
+  data() {
+    return {
+      customers: [],
+      items: [],
+      warehouses: [],
+      savedOffline: false,
+      newSalesOrder: {
+        customer: "",
+        items: [{ item_code: "", qty: 1, rate: 0, warehouse: "" }],
+        delivery_date: "",
+      },
+    };
+  },
+  async created() {
+    // Load from cache first so the form is instantly usable offline
+    const cached = localStorage.getItem('live_form_cache')
+    if (cached) {
+      const { customers, items, warehouses } = JSON.parse(cached)
+      this.customers = customers || []
+      this.items = items || []
+      this.warehouses = warehouses || []
+    }
+    // Refresh from server when online
+    if (this.isOnline) {
+      try {
+        const [cRes, iRes, wRes] = await Promise.all([
+          fetch("/api/resource/Customer?fields=[\"name\",\"customer_name\"]&limit_page_length=200"),
+          fetch("/api/resource/Item?fields=[\"name\",\"item_name\"]&limit_page_length=200"),
+          fetch("/api/resource/Warehouse?fields=[\"name\",\"warehouse_name\"]&limit_page_length=200"),
+        ])
+        this.customers = (await cRes.json()).data || []
+        this.items     = (await iRes.json()).data || []
+        this.warehouses = (await wRes.json()).data || []
+        localStorage.setItem('live_form_cache', JSON.stringify({
+          customers: this.customers,
+          items: this.items,
+          warehouses: this.warehouses,
+        }))
+      } catch (error) {
+        console.error("Error fetching form data:", error)
+      }
+    }
+  },
+  methods: {
+    addItem() {
+      this.newSalesOrder.items.push({ item_code: "", qty: 1, rate: 0, warehouse: "" });
+    },
+    removeItem(index) {
+      this.newSalesOrder.items.splice(index, 1);
+    },
+    async createSalesOrder() {
+      // Save offline when there's no connection
+      if (!this.isOnline) {
+        addToQueue({ ...this.newSalesOrder })
+        this.savedOffline = true
+        this.newSalesOrder = {
           customer: "",
           items: [{ item_code: "", qty: 1, rate: 0, warehouse: "" }],
           delivery_date: "",
-      },
-      };
-    },
-    async created() {
+        }
+        setTimeout(() => { this.savedOffline = false }, 4000)
+        return
+      }
+
       try {
-        const customerResponse = await fetch("/api/resource/Customer");
-        const customerData = await customerResponse.json();
-        this.customers = customerData.data;
-  
-        const itemResponse = await fetch("/api/resource/Item");
-        const itemData = await itemResponse.json();
-        this.items = itemData.data;
-  
-        const warehouseResponse = await fetch("/api/resource/Warehouse");
-        const warehouseData = await warehouseResponse.json();
-        this.warehouses = warehouseData.data;
+        const response = await fetch("/api/resource/Sales Order", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(this.newSalesOrder),
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to create Sales Order: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        alert("Sales Order saved successfully!");
+        this.newSalesOrder.id = data.data.name;
       } catch (error) {
-        console.error("Error fetching data from ERPNext:", error);
+        // If the network call fails mid-flight, queue it for retry
+        addToQueue({ ...this.newSalesOrder })
+        this.savedOffline = true
+        setTimeout(() => { this.savedOffline = false }, 4000)
       }
     },
-    methods: {
-      addItem() {
-        this.newSalesOrder.items.push({ item_code: "", qty: 1, rate: 0, warehouse: "" });
-      },
-      removeItem(index) {
-        this.newSalesOrder.items.splice(index, 1);
-      },
-      async createSalesOrder() {
-        try {
-          const response = await fetch("/api/resource/Sales Order", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(this.newSalesOrder),
-          });
-  
-          if (!response.ok) {
-            throw new Error(`Failed to create Sales Order: ${response.statusText}`);
-          }
-  
-          const data = await response.json();
-          console.log("Sales Order saved successfully:", data);
-          alert("Sales Order saved successfully!");
-          this.newSalesOrder.id = data.data.name; // Save the ID for further actions
-        } catch (error) {
-          console.error("Error creating Sales Order:", error);
-          alert("Failed to save Sales Order. Please try again.");
-        }
-      },
       async submitSalesOrder() {
         if (!this.newSalesOrder.id) {
           alert("Please save the order first.");
