@@ -1,5 +1,12 @@
 import './index.css'
 
+// Capture the install prompt as early as possible — before Vue even mounts.
+// InstallPrompt.vue reads window.__pwaInstallPrompt when it mounts.
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault()
+  window.__pwaInstallPrompt = e
+})
+
 import { createApp } from 'vue'
 import router from './router'
 import App from './App.vue'

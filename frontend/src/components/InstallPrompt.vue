@@ -67,7 +67,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 
-const DISMISSED_KEY = 'live_install_dismissed'
+const DISMISSED_KEY = 'live_install_dismissed_v2'
 
 const showAndroidBanner = ref(false)
 const showIosGuide = ref(false)
@@ -106,23 +106,26 @@ function isInStandaloneMode() {
 }
 
 onMounted(() => {
-  // Already installed or user dismissed — don't show anything
   if (isInStandaloneMode() || isDismissed()) return
 
   if (isIos()) {
-    // iOS doesn't fire beforeinstallprompt — show the manual guide after a delay
     setTimeout(() => { showIosGuide.value = true }, 3000)
     return
   }
 
-  // Android / Chrome / Edge: capture the browser's install event
-  window.addEventListener('beforeinstallprompt', (e) => {
-    e.preventDefault()
+  // The prompt was captured in main.js at page load (before Vue mounted).
+  // Check for it now, and also watch in case it fires late.
+  const show = (e) => {
     deferredPrompt = e
-    setTimeout(() => { showAndroidBanner.value = true }, 3000)
-  })
+    setTimeout(() => { showAndroidBanner.value = true }, 2000)
+  }
 
-  // Hide if user installs via browser menu while banner is visible
+  if (window.__pwaInstallPrompt) {
+    show(window.__pwaInstallPrompt)
+  } else {
+    window.addEventListener('beforeinstallprompt', show, { once: true })
+  }
+
   window.addEventListener('appinstalled', () => {
     showAndroidBanner.value = false
     localStorage.setItem(DISMISSED_KEY, '1')
