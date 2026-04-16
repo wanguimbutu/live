@@ -123,6 +123,7 @@ import { useOfflineQueue } from '../composables/useOfflineQueue'
 
 const { queue } = useOfflineQueue()
 
+const ORDERS_CACHE = 'live_orders_cache'
 const salesOrders = ref([])
 const loading = ref(false)
 const hasMore = ref(true)
@@ -169,24 +170,35 @@ function formatSavedAt(iso) {
 async function fetchOrders(reset = false) {
   if (reset) {
     limitStart.value = 0
-    salesOrders.value = []
     hasMore.value = true
+
+    // Show cache instantly on first "all" load with no search
+    if (!searchQuery.value && activeTab.value === 'all') {
+      const cached = localStorage.getItem(ORDERS_CACHE)
+      if (cached) {
+        salesOrders.value = JSON.parse(cached)
+        // Refresh in background
+        fetchOrdersFromServer(true, true)
+        return
+      }
+    }
+    salesOrders.value = []
   }
-  loading.value = true
+  await fetchOrdersFromServer(reset, false)
+}
+
+async function fetchOrdersFromServer(reset = false, background = false) {
+  if (!background) loading.value = true
   try {
     const filters = []
-    if (searchQuery.value) {
-      filters.push(['customer_name', 'like', `%${searchQuery.value}%`])
-    }
-    if (activeTab.value !== 'all') {
-      filters.push(['status', '=', activeTab.value])
-    }
+    if (searchQuery.value) filters.push(['customer_name', 'like', `%${searchQuery.value}%`])
+    if (activeTab.value !== 'all') filters.push(['status', '=', activeTab.value])
 
     const payload = {
       doctype: 'Sales Order',
       fields: ['name', 'customer_name', 'transaction_date', 'delivery_date', 'status', 'grand_total'],
       order_by: 'creation desc',
-      limit_start: limitStart.value,
+      limit_start: reset || background ? 0 : limitStart.value,
       limit_page_length: LIMIT,
       filters: filters.length ? filters : undefined,
     }
@@ -204,13 +216,23 @@ async function fetchOrders(reset = false) {
       row.reduce((obj, val, i) => { obj[keys[i]] = val; return obj }, {})
     )
 
-    salesOrders.value = [...salesOrders.value, ...orders]
+    if (reset || background) {
+      salesOrders.value = orders
+      limitStart.value = orders.length
+    } else {
+      salesOrders.value = [...salesOrders.value, ...orders]
+      limitStart.value += orders.length
+    }
     hasMore.value = orders.length >= LIMIT
-    limitStart.value += LIMIT
+
+    // Cache the first page (no filter) for instant next load
+    if (!searchQuery.value && activeTab.value === 'all' && (reset || background)) {
+      localStorage.setItem(ORDERS_CACHE, JSON.stringify(orders))
+    }
   } catch (e) {
     console.error('Error fetching orders:', e)
   } finally {
-    loading.value = false
+    if (!background) loading.value = false
   }
 }
 
@@ -224,7 +246,7 @@ function switchTab(key) {
 }
 
 function loadMore() {
-  fetchOrders()
+  fetchOrdersFromServer(false, false)
 }
 
 fetchOrders(true)

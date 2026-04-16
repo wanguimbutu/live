@@ -219,6 +219,7 @@ L.Icon.Default.mergeOptions({
 
 let mapInstance = null
 
+const CACHE_KEY = 'live_customers_cache'
 const customers = ref([])
 const searchQuery = ref('')
 const hasMore = ref(true)
@@ -228,7 +229,7 @@ const newCustomer = ref({ customer_name: '' })
 const addLoading = ref(false)
 const addError = ref('')
 const limitStart = ref(0)
-const LIMIT = 10
+const LIMIT = 20
 
 const showCustomerVisitModal = ref(false)
 const showFeedbackModal = ref(false)
@@ -253,7 +254,22 @@ const loadingOrders = ref(false)
 const selectedOrder = ref(null)
 
 async function fetchCustomers(isSearch = false) {
-  loadingCustomers.value = true
+  // Show cached data immediately on first load
+  if (!isSearch && limitStart.value === 0) {
+    const cached = localStorage.getItem(CACHE_KEY)
+    if (cached) {
+      customers.value = JSON.parse(cached)
+      hasMore.value = true
+      // Refresh in background without showing spinner
+      fetchCustomersFromServer(false, true)
+      return
+    }
+  }
+  await fetchCustomersFromServer(isSearch, false)
+}
+
+async function fetchCustomersFromServer(isSearch = false, background = false) {
+  if (!background) loadingCustomers.value = true
   try {
     const res = await fetch('/api/method/frappe.desk.reportview.get', {
       method: 'POST',
@@ -262,31 +278,39 @@ async function fetchCustomers(isSearch = false) {
       body: JSON.stringify({
         doctype: 'Customer',
         fields: ['name', 'customer_name'],
-        order_by: 'creation desc',
+        order_by: 'customer_name asc',
         filters: searchQuery.value ? [['customer_name', 'like', `%${searchQuery.value}%`]] : [],
-        limit_start: limitStart.value,
+        limit_start: isSearch || background ? 0 : limitStart.value,
         limit_page_length: LIMIT,
       }),
     })
     const data = await res.json()
     const fetched = data?.message?.values?.map(v => ({ name: v[0], customer_name: v[1] })) || []
-    if (isSearch) customers.value = fetched
-    else customers.value = [...customers.value, ...fetched]
+    if (isSearch || background) {
+      customers.value = fetched
+      limitStart.value = fetched.length
+    } else {
+      customers.value = [...customers.value, ...fetched]
+      limitStart.value += fetched.length
+    }
     hasMore.value = fetched.length >= LIMIT
-    if (!isSearch) limitStart.value += LIMIT
+    // Cache the first page for instant load next time
+    if (!searchQuery.value && (isSearch || background || limitStart.value <= LIMIT)) {
+      localStorage.setItem(CACHE_KEY, JSON.stringify(customers.value.slice(0, LIMIT)))
+    }
   } catch (e) {
     console.error('Error fetching customers:', e)
   } finally {
-    loadingCustomers.value = false
+    if (!background) loadingCustomers.value = false
   }
 }
 
-function loadMore() { fetchCustomers() }
+function loadMore() { fetchCustomersFromServer(false, false) }
 
 function handleSearch() {
   limitStart.value = 0
   hasMore.value = true
-  fetchCustomers(true)
+  fetchCustomersFromServer(true, false)
 }
 
 async function addCustomer() {
@@ -307,7 +331,8 @@ async function addCustomer() {
     newCustomer.value = { customer_name: '' }
     showAddCustomerModal.value = false
     limitStart.value = 0
-    fetchCustomers(true)
+    localStorage.removeItem(CACHE_KEY)
+    fetchCustomersFromServer(true, false)
   } catch (e) {
     addError.value = e.message || 'Failed to create customer'
   } finally {

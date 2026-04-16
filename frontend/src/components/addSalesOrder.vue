@@ -330,9 +330,9 @@ async function loadFormData() {
   loadingData.value = true
   try {
     const [cRes, iRes, wRes] = await Promise.all([
-      fetch('/api/resource/Customer?fields=["name","customer_name"]&limit_page_length=500', { credentials: 'include' }),
-      fetch('/api/resource/Item?fields=["name","item_name","standard_rate"]&limit_page_length=500&filters=[["disabled","=",0]]', { credentials: 'include' }),
-      fetch('/api/resource/Warehouse?fields=["name","warehouse_name"]&limit_page_length=200&filters=[["is_group","=",0]]', { credentials: 'include' }),
+      fetch('/api/resource/Customer?fields=["name","customer_name"]&limit_page_length=200', { credentials: 'include' }),
+      fetch('/api/resource/Item?fields=["name","item_name","standard_rate"]&limit_page_length=200', { credentials: 'include' }),
+      fetch('/api/resource/Warehouse?fields=["name","warehouse_name"]&limit_page_length=100', { credentials: 'include' }),
     ])
     customers.value = (await cRes.json()).data || []
     items.value = (await iRes.json()).data || []
