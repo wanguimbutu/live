@@ -52,6 +52,10 @@ const routes = [
       {
         path: '/add-customer',
         component: () => import('@/pages/NewCustomer.vue'),
+      },
+      {
+        path: '/visits',
+        component: () => import('@/pages/Visits.vue'),
       }
     ]
   }

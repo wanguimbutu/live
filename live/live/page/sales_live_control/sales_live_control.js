@@ -58,6 +58,8 @@ frappe.pages['sales-live-control'].on_page_load = function(wrapper) {
 
     var map = null;
     var markers = {};
+    var trailLayers = {};
+    var visitMarkersList = [];
 
     function loadData() {
         frappe.call({
@@ -67,7 +69,20 @@ frappe.pages['sales-live-control'].on_page_load = function(wrapper) {
                     $body.html('<div class="slc-error">Failed to load data. Make sure you have System Manager role.</div>');
                     return;
                 }
-                renderDashboard(r.message);
+                // Also load today's visit trails
+                frappe.call({
+                    method: 'live.api.visits.get_all_trails',
+                    callback: function(vr) {
+                        r.message.visits = (vr.message || {}).visits || [];
+                        r.message.trail = (vr.message || {}).trail || [];
+                        renderDashboard(r.message);
+                    },
+                    error: function() {
+                        r.message.visits = [];
+                        r.message.trail = [];
+                        renderDashboard(r.message);
+                    }
+                });
             }
         });
     }
@@ -75,6 +90,8 @@ frappe.pages['sales-live-control'].on_page_load = function(wrapper) {
     function renderDashboard(data) {
         var presence = data.presence || [];
         var checkins = data.checkins || [];
+        var visits = data.visits || [];
+        var trail = data.trail || [];
 
         var online = presence.filter(function(p) { return p.online; });
         var withLocation = presence.filter(function(p) { return p.latitude && p.longitude; });
@@ -89,13 +106,13 @@ frappe.pages['sales-live-control'].on_page_load = function(wrapper) {
             '<div class="slc-stats">' +
                 statCard(presence.length, 'Total Users') +
                 statCard(online.length, 'Online Now') +
-                statCard(withLocation.length, 'With Location') +
+                statCard(visits.length, 'Visits Today') +
                 statCard(charging.length, 'Charging') +
                 statCard(lowBattery.length, 'Low Battery') +
             '</div>' +
             '<div class="slc-grid">' +
                 '<div class="slc-map-card">' +
-                    '<div class="slc-card-header">Live Map</div>' +
+                    '<div class="slc-card-header">Live Map &amp; Visit Trails</div>' +
                     '<div id="slc-map"></div>' +
                 '</div>' +
                 '<div class="slc-map-card">' +
@@ -106,6 +123,10 @@ frappe.pages['sales-live-control'].on_page_load = function(wrapper) {
                 '</div>' +
             '</div>' +
             '<div class="slc-checkins-card">' +
+                '<div class="slc-card-header">Today\'s Customer Visits</div>' +
+                buildVisitsTable(visits) +
+            '</div>' +
+            '<div class="slc-checkins-card" style="margin-top:20px">' +
                 '<div class="slc-card-header">Recent Check-Ins / Check-Outs</div>' +
                 buildCheckinsTable(checkins) +
             '</div>'
@@ -121,6 +142,8 @@ frappe.pages['sales-live-control'].on_page_load = function(wrapper) {
             map.remove();
             map = null;
             markers = {};
+            trailLayers = {};
+            visitMarkersList = [];
         }
         map = L.map('slc-map').setView([0, 20], 2);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -128,6 +151,49 @@ frappe.pages['sales-live-control'].on_page_load = function(wrapper) {
         }).addTo(map);
 
         var bounds = [];
+
+        // Draw trail polylines per user (different color per user)
+        var trailColors = ['#1d4ed8','#7c3aed','#059669','#dc2626','#d97706','#0891b2'];
+        var userColorMap = {};
+        var colorIdx = 0;
+        trail.forEach(function(pt) {
+            if (!pt.latitude || !pt.longitude) return;
+            if (!userColorMap[pt.user]) {
+                userColorMap[pt.user] = trailColors[colorIdx % trailColors.length];
+                colorIdx++;
+                trailLayers[pt.user] = [];
+            }
+            trailLayers[pt.user].push([parseFloat(pt.latitude), parseFloat(pt.longitude)]);
+        });
+        Object.keys(trailLayers).forEach(function(u) {
+            var pts = trailLayers[u];
+            if (pts.length >= 2) {
+                L.polyline(pts, { color: userColorMap[u], weight: 3, opacity: 0.6 }).addTo(map);
+                pts.forEach(function(p) { bounds.push(p); });
+            }
+        });
+
+        // Visit markers (amber pins)
+        visits.forEach(function(v) {
+            if (!v.latitude || !v.longitude) return;
+            var lat = parseFloat(v.latitude);
+            var lng = parseFloat(v.longitude);
+            var icon = L.divIcon({
+                html: '<div style="width:28px;height:28px;background:#f59e0b;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center"><span style="transform:rotate(45deg);color:#fff;font-weight:700;font-size:0.7rem">' + (v.customer_name||'?')[0] + '</span></div>',
+                iconSize: [28, 28], iconAnchor: [14, 28], className: '',
+            });
+            var popup = '<strong>' + (v.customer_name || v.customer) + '</strong><br>' +
+                '<span style="color:#94a3b8;font-size:0.8rem">' + (v.user_name || v.user) + '</span><br>' +
+                'Started: ' + new Date(v.start_time).toLocaleTimeString() +
+                (v.duration_minutes ? ' · ' + v.duration_minutes + ' min' : '') +
+                (v.notes ? '<br><em>' + v.notes + '</em>' : '') +
+                (v.sales_order ? '<br>Order: ' + v.sales_order : '');
+            var m = L.marker([lat, lng], { icon: icon }).addTo(map).bindPopup(popup);
+            visitMarkersList.push(m);
+            bounds.push([lat, lng]);
+        });
+
+        // Presence dots
         presence.forEach(function(p) {
             if (!p.latitude || !p.longitude) return;
             var lat = parseFloat(p.latitude);
@@ -136,9 +202,7 @@ frappe.pages['sales-live-control'].on_page_load = function(wrapper) {
             var battery = p.battery_level ? p.battery_level + '%' : '';
             var icon = L.divIcon({
                 html: '<div style="width:14px;height:14px;border-radius:50%;background:' + color + ';border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.3)"></div>',
-                iconSize: [14, 14],
-                iconAnchor: [7, 7],
-                className: '',
+                iconSize: [14, 14], iconAnchor: [7, 7], className: '',
             });
             var marker = L.marker([lat, lng], { icon: icon });
             var lastSeen = p.last_seen ? new Date(p.last_seen).toLocaleString() : 'Unknown';
@@ -191,6 +255,26 @@ frappe.pages['sales-live-control'].on_page_load = function(wrapper) {
                 battery +
             '</div>';
         }).join('');
+    }
+
+    function buildVisitsTable(visits) {
+        if (!visits.length) return '<div style="padding:24px;text-align:center;color:#94a3b8;font-size:0.85rem;">No visits recorded today</div>';
+        var rows = visits.map(function(v) {
+            var start = v.start_time ? new Date(v.start_time).toLocaleTimeString() : '—';
+            var end = v.end_time ? new Date(v.end_time).toLocaleTimeString() : '<span style="color:#22c55e;font-weight:700">Active</span>';
+            var dur = v.duration_minutes ? v.duration_minutes + ' min' : '—';
+            var order = v.sales_order ? '<span class="badge badge-in">' + v.sales_order + '</span>' : '';
+            return '<tr>' +
+                '<td>' + (v.user_name || v.user || '—') + '</td>' +
+                '<td><strong>' + (v.customer_name || v.customer || '—') + '</strong></td>' +
+                '<td>' + start + '</td>' +
+                '<td>' + end + '</td>' +
+                '<td>' + dur + '</td>' +
+                '<td>' + order + '</td>' +
+                '<td style="color:#6b7280;font-size:0.8rem;max-width:180px">' + (v.notes || '') + '</td>' +
+            '</tr>';
+        }).join('');
+        return '<table class="checkin-table"><thead><tr><th>Rep</th><th>Customer</th><th>Start</th><th>End</th><th>Duration</th><th>Order</th><th>Notes</th></tr></thead><tbody>' + rows + '</tbody></table>';
     }
 
     function buildCheckinsTable(checkins) {

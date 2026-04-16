@@ -1,28 +1,56 @@
 {
  "actions": [],
  "allow_rename": 1,
+ "autoname": "format:VISIT-{YYYY}-{MM}-{DD}-{#####}",
  "creation": "2024-12-31 09:09:19.238136",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
-  "customer_name",
+  "customer",
+  "user",
+  "sales_order",
+  "column_break_1",
   "start_time",
   "end_time",
+  "duration_minutes",
+  "section_location",
   "latitude",
   "longitude",
-  "feedback"
+  "section_notes",
+  "notes"
  ],
  "fields": [
   {
-   "fieldname": "customer_name",
+   "fieldname": "customer",
    "fieldtype": "Link",
-   "label": "Customer Name",
-   "options": "Customer"
+   "in_list_view": 1,
+   "label": "Customer",
+   "options": "Customer",
+   "reqd": 1
+  },
+  {
+   "fieldname": "user",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Sales Rep",
+   "options": "User"
+  },
+  {
+   "fieldname": "sales_order",
+   "fieldtype": "Link",
+   "label": "Sales Order",
+   "options": "Sales Order"
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
   },
   {
    "fieldname": "start_time",
    "fieldtype": "Datetime",
-   "label": "Start Time"
+   "in_list_view": 1,
+   "label": "Start Time",
+   "reqd": 1
   },
   {
    "fieldname": "end_time",
@@ -30,24 +58,42 @@
    "label": "End Time"
   },
   {
+   "fieldname": "duration_minutes",
+   "fieldtype": "Int",
+   "label": "Duration (min)",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "section_location",
+   "fieldtype": "Section Break",
+   "label": "Location"
+  },
+  {
    "fieldname": "latitude",
-   "fieldtype": "Data",
-   "label": "Latitude"
+   "fieldtype": "Float",
+   "label": "Latitude",
+   "precision": "8"
   },
   {
    "fieldname": "longitude",
-   "fieldtype": "Data",
-   "label": "Longitude"
+   "fieldtype": "Float",
+   "label": "Longitude",
+   "precision": "8"
   },
   {
-   "fieldname": "feedback",
+   "fieldname": "section_notes",
+   "fieldtype": "Section Break",
+   "label": "Notes"
+  },
+  {
+   "fieldname": "notes",
    "fieldtype": "Small Text",
-   "label": "Feedback"
+   "label": "Notes"
   }
  ],
- "index_web_pages_for_search": 1,
+ "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2025-01-02 10:55:37.805787",
+ "modified": "2026-04-16 00:00:00.000000",
  "modified_by": "Administrator",
  "module": "Live",
  "name": "Customer Visits",
@@ -64,9 +110,15 @@
    "role": "System Manager",
    "share": 1,
    "write": 1
+  },
+  {
+   "create": 1,
+   "read": 1,
+   "role": "All",
+   "write": 1
   }
  ],
- "sort_field": "modified",
+ "sort_field": "start_time",
  "sort_order": "DESC",
  "states": []
 }
