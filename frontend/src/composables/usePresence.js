@@ -29,6 +29,7 @@ const battery = ref(null)
 const isCharging = ref(false)
 const syncError = ref(null)
 const lastSynced = ref(null)
+const locationDenied = ref(false)
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 function haversineMeters(lat1, lng1, lat2, lng2) {
@@ -52,12 +53,16 @@ function readLocation() {
     if (!navigator.geolocation) { resolve(false); return }
     navigator.geolocation.getCurrentPosition(
       (pos) => {
+        locationDenied.value = false
         latitude.value = pos.coords.latitude
         longitude.value = pos.coords.longitude
         accuracy.value  = pos.coords.accuracy
         resolve(true)
       },
-      () => resolve(false),
+      (err) => {
+        if (err.code === 1 /* PERMISSION_DENIED */) locationDenied.value = true
+        resolve(false)
+      },
       {
         enableHighAccuracy: false,  // use network/WiFi — much less battery
         timeout: 10000,
@@ -136,11 +141,12 @@ async function initBattery() {
 export function usePresence() {
   initBattery()
 
-  // First sync after 8s (let the app settle), then on a schedule
+  // Request location immediately to trigger permission prompt on first use,
+  // then begin the regular polling cycle.
   const initTimer = setTimeout(() => {
     syncPresence()
     schedulePoll()
-  }, 8000)
+  }, 1000)
 
   // Sync when tab becomes visible again after being hidden
   boundOnVisible = () => { if (!document.hidden) syncPresence() }
@@ -156,5 +162,5 @@ export function usePresence() {
     }
   })
 
-  return { latitude, longitude, accuracy, battery, isCharging, lastSynced, syncError }
+  return { latitude, longitude, accuracy, battery, isCharging, lastSynced, syncError, locationDenied }
 }

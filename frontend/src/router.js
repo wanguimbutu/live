@@ -56,7 +56,29 @@ const routes = [
       {
         path: '/visits',
         component: () => import('@/pages/Visits.vue'),
-      }
+      },
+      {
+        path: '/collections',
+        component: () => import('@/pages/Collections.vue'),
+      },
+      {
+        path: '/dashboard',
+        component: () => import('@/pages/Dashboard.vue'),
+      },
+      {
+        path: '/catalog',
+        component: () => import('@/pages/Catalog.vue'),
+      },
+      {
+        path: '/customer/:id/timeline',
+        name: 'CustomerTimeline',
+        component: () => import('@/pages/CustomerTimeline.vue'),
+        props: true,
+      },
+      {
+        path: '/approvals',
+        component: () => import('@/pages/PendingApprovals.vue'),
+      },
     ]
   }
 ]

@@ -63,14 +63,28 @@ export function removeFromQueue(id) {
 
 // ─── sync logic ───────────────────────────────────────────────────────────────
 async function syncEntry(entry) {
-  const res = await fetch('/api/resource/Sales Order', {
+  const order = entry.order
+  const payload = {
+    customer: order.customer,
+    delivery_date: order.delivery_date,
+    currency: order.currency || 'KES',
+    ...(order.price_list && { selling_price_list: order.price_list }),
+    ...(order.taxes_and_charges && { taxes_and_charges: order.taxes_and_charges }),
+    items: (order.items || []).map(i => ({
+      item_code: i.item_code,
+      qty: i.qty,
+      rate: i.rate,
+      warehouse: i.warehouse,
+    })),
+  }
+  const res = await fetch('/api/resource/Sales%20Order', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'X-Frappe-CSRF-Token': window.csrf_token || '',
     },
     credentials: 'include',
-    body: JSON.stringify(entry.order),
+    body: JSON.stringify(payload),
   })
   if (!res.ok) {
     const txt = await res.text()

@@ -104,6 +104,12 @@
 
     <!-- Actions bar -->
     <div v-if="order" class="od-actions">
+      <button class="btn-reorder" @click="quickReorder">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14">
+          <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.6"/>
+        </svg>
+        Reorder
+      </button>
       <template v-if="order.status === 'Draft'">
         <button class="btn-secondary" :disabled="actionLoading" @click="submitOrder">
           <span v-if="actionLoading === 'submit'" class="btn-spinner-dark"></span>
@@ -160,7 +166,23 @@ function formatDate(d) {
 
 function formatCurrency(n) {
   if (!n && n !== 0) return '—'
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 }).format(n)
+  return new Intl.NumberFormat('en-KE', { style: 'currency', currency: 'KES', minimumFractionDigits: 0 }).format(n)
+}
+
+function quickReorder() {
+  if (!order.value?.items?.length) return
+  router.push({
+    path: '/add-sales-order',
+    state: {
+      preloadItems: order.value.items.map(i => ({
+        item_code: i.item_code,
+        item_name: i.item_name,
+        qty: i.qty,
+        rate: i.rate,
+        warehouse: i.warehouse || 'FG Stores',
+      })),
+    },
+  })
 }
 
 function showToast(msg, type = 'success') {
@@ -365,6 +387,12 @@ onMounted(fetchOrderDetails)
   background: #fff; border-top: 1px solid #f1f5f9;
   padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
   display: flex; gap: 10px; z-index: 20;
+}
+.btn-reorder {
+  padding: 13px 16px; background: #f0fdf4; color: #166534;
+  border: 1.5px solid #bbf7d0; border-radius: 12px;
+  font-weight: 700; font-size: 0.85rem; cursor: pointer;
+  display: flex; align-items: center; gap: 6px; flex-shrink: 0;
 }
 .btn-primary {
   flex: 1; padding: 13px; background: #1d4ed8; color: #fff;

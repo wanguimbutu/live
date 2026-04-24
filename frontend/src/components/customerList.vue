@@ -88,7 +88,13 @@
             <h3 class="modal-title">{{ currentCustomer.customer_name }}</h3>
             <p class="modal-subtitle">Customer Visit</p>
           </div>
-          <button class="modal-close" @click="closeVisitModal">✕</button>
+          <div style="display:flex;align-items:center;gap:8px">
+            <button class="btn-timeline" @click="$router.push(`/customer/${currentCustomer.name}/timeline`); closeVisitModal()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+              Timeline
+            </button>
+            <button class="modal-close" @click="closeVisitModal">✕</button>
+          </div>
         </div>
         <div class="modal-body">
           <!-- Visit timer -->
@@ -644,6 +650,11 @@ fetchCustomers()
 .modal-close {
   background: #f3f4f6; border: none; border-radius: 50%;
   width: 28px; height: 28px; cursor: pointer; color: #6b7280; font-size: 0.8rem;
+}
+.btn-timeline {
+  display: flex; align-items: center; gap: 5px;
+  padding: 5px 10px; background: #eff6ff; color: #1d4ed8;
+  border: none; border-radius: 8px; font-size: 0.75rem; font-weight: 700; cursor: pointer;
 }
 .modal-body { overflow-y: auto; padding: 16px 20px; }
 

@@ -10,7 +10,7 @@
       <h1 class="so-form-title">New Sales Order</h1>
     </div>
 
-    <!-- Offline / saved banners -->
+    <!-- Banners -->
     <div v-if="!isOnline" class="banner banner-amber">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
       You're offline — orders will sync automatically when reconnected.
@@ -23,6 +23,10 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><polyline points="20 6 9 17 4 12"/></svg>
       {{ savedMsg }}
     </div>
+    <div v-if="pendingApproval" class="banner banner-amber">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      Awaiting manager approval — you'll be notified when reviewed.
+    </div>
     <div v-if="errorMsg" class="banner banner-red">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
       {{ errorMsg }}
@@ -33,7 +37,7 @@
       <div class="field-group">
         <label class="field-label">Customer <span class="required">*</span></label>
         <div class="searchable-select" :class="{ open: customerDropOpen }">
-          <div class="select-display" @click="customerDropOpen = !customerDropOpen">
+          <div class="select-display" @click="openCustomerDrop">
             <span v-if="newSalesOrder.customer" class="select-value">
               {{ customers.find(c => c.name === newSalesOrder.customer)?.customer_name || newSalesOrder.customer }}
             </span>
@@ -76,6 +80,60 @@
         />
       </div>
 
+      <!-- Price List -->
+      <div class="field-group">
+        <label class="field-label">Price List</label>
+        <div class="searchable-select" :class="{ open: priceListDropOpen }">
+          <div class="select-display" @click="openPriceListDrop">
+            <span v-if="newSalesOrder.price_list" class="select-value">{{ newSalesOrder.price_list }}</span>
+            <span v-else class="select-placeholder">Select price list…</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" class="select-chevron">
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
+          </div>
+          <div v-if="priceListDropOpen" class="select-dropdown">
+            <input v-model="priceListSearch" class="select-search" placeholder="Search price list…" @click.stop />
+            <div
+              v-for="pl in filteredPriceLists"
+              :key="pl.name"
+              class="select-option"
+              :class="{ selected: newSalesOrder.price_list === pl.name }"
+              @click="newSalesOrder.price_list = pl.name; priceListDropOpen = false; priceListSearch = ''"
+            >
+              {{ pl.name }}
+            </div>
+            <div v-if="filteredPriceLists.length === 0" class="select-empty">No price lists found</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Taxes and Charges -->
+      <div class="field-group">
+        <label class="field-label">Taxes &amp; Charges</label>
+        <div class="searchable-select" :class="{ open: taxDropOpen }">
+          <div class="select-display" @click="openTaxDrop">
+            <span v-if="newSalesOrder.taxes_and_charges" class="select-value">{{ newSalesOrder.taxes_and_charges }}</span>
+            <span v-else class="select-placeholder">Select tax template…</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" class="select-chevron">
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
+          </div>
+          <div v-if="taxDropOpen" class="select-dropdown">
+            <input v-model="taxSearch" class="select-search" placeholder="Search taxes…" @click.stop />
+            <div
+              v-for="t in filteredTaxTemplates"
+              :key="t.name"
+              class="select-option"
+              :class="{ selected: newSalesOrder.taxes_and_charges === t.name }"
+              @click="newSalesOrder.taxes_and_charges = t.name; taxDropOpen = false; taxSearch = ''"
+            >
+              {{ t.title || t.name }}
+            </div>
+            <div v-if="filteredTaxTemplates.length === 0" class="select-empty">No tax templates found</div>
+          </div>
+        </div>
+      </div>
+
       <!-- Items -->
       <div class="field-group">
         <div class="items-header">
@@ -100,7 +158,14 @@
 
           <!-- Item select -->
           <div class="field-group" style="margin-bottom:10px">
-            <label class="field-label-sm">Product</label>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+              <label class="field-label-sm" style="margin:0">Product</label>
+              <span
+                v-if="item.item_code && stockLabel(item.item_code)"
+                class="stock-pill"
+                :class="stockLabel(item.item_code).cls"
+              >{{ stockLabel(item.item_code).text }}</span>
+            </div>
             <div class="searchable-select" :class="{ open: itemDropOpen[index] }">
               <div class="select-display" @click="toggleItemDrop(index)">
                 <span v-if="item.item_code" class="select-value">
@@ -134,7 +199,7 @@
               <input v-model.number="item.qty" type="number" min="1" class="field-input" placeholder="1" />
             </div>
             <div class="item-field">
-              <label class="field-label-sm">Rate</label>
+              <label class="field-label-sm">Rate (KES)</label>
               <input v-model.number="item.rate" type="number" min="0" step="0.01" class="field-input" placeholder="0.00" />
             </div>
             <div class="item-field">
@@ -185,15 +250,45 @@
         <label class="field-label">Notes (optional)</label>
         <textarea v-model="newSalesOrder.notes" class="field-textarea" rows="2" placeholder="Any special instructions…"></textarea>
       </div>
+
+      <!-- Reminder -->
+      <button
+        v-if="newSalesOrder.customer"
+        type="button"
+        class="reminder-btn"
+        @click="openReminderModal"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+        </svg>
+        Set Follow-up Reminder
+      </button>
+    </div>
+
+    <!-- Reminder modal -->
+    <div v-if="reminderModal.open" class="modal-backdrop" @click.self="reminderModal.open = false">
+      <div class="modal-sheet">
+        <div class="modal-header">
+          <h3 class="modal-title">Follow-up Reminder</h3>
+          <button class="modal-close" @click="reminderModal.open = false">✕</button>
+        </div>
+        <div class="modal-body">
+          <label class="modal-label">Date &amp; Time</label>
+          <input v-model="reminderModal.date" type="datetime-local" class="field-input" />
+          <label class="modal-label" style="margin-top:10px">Note (optional)</label>
+          <textarea v-model="reminderModal.note" class="field-textarea" rows="2" placeholder="What to follow up on…"></textarea>
+          <button class="modal-save-btn" :disabled="!reminderModal.date" @click="saveReminder">Save Reminder</button>
+        </div>
+      </div>
     </div>
 
     <!-- Bottom actions -->
     <div class="so-form-actions">
-      <button type="button" class="btn-save" :disabled="submitting" @click="createSalesOrder(false)">
+      <button type="button" class="btn-save" :disabled="submitting || completed" @click="createSalesOrder(false)">
         <span v-if="submitting === 'save'" class="btn-spinner"></span>
         <span v-else>Save Draft</span>
       </button>
-      <button type="button" class="btn-submit" :disabled="submitting" @click="createSalesOrder(true)">
+      <button type="button" class="btn-submit" :disabled="submitting || completed" @click="createSalesOrder(true)">
         <span v-if="submitting === 'submit'" class="btn-spinner"></span>
         <span v-else>Save &amp; Submit</span>
       </button>
@@ -205,15 +300,20 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useOfflineQueue, addToQueue } from '../composables/useOfflineQueue'
+import { useReminders } from '../composables/useReminders'
 
 const router = useRouter()
 const { isOnline } = useOfflineQueue()
+const { addReminder } = useReminders()
 
 const customers = ref([])
 const items = ref([])
 const warehouses = ref([])
+const priceLists = ref([])
+const taxTemplates = ref([])
 const loadingData = ref(false)
 const submitting = ref(false)
+const completed = ref(false)
 const savedOffline = ref(false)
 const savedMsg = ref('')
 const errorMsg = ref('')
@@ -224,13 +324,25 @@ const itemDropOpen = ref([])
 const itemSearch = ref([])
 const warehouseDropOpen = ref([])
 const warehouseSearch = ref([])
+const priceListDropOpen = ref(false)
+const priceListSearch = ref('')
+const taxDropOpen = ref(false)
+const taxSearch = ref('')
+
+const itemStock = ref({})
+const pendingApproval = ref(false)
+
+const reminderModal = ref({ open: false, date: '', note: '' })
 
 const today = new Date().toISOString().split('T')[0]
+const DEFAULT_WAREHOUSE = 'FG Stores'
 
 const newSalesOrder = ref({
   customer: '',
   delivery_date: '',
-  items: [{ item_code: '', qty: 1, rate: 0, warehouse: '' }],
+  price_list: '',
+  taxes_and_charges: '',
+  items: [{ item_code: '', qty: 1, rate: 0, warehouse: DEFAULT_WAREHOUSE }],
   notes: '',
 })
 
@@ -243,6 +355,16 @@ const filteredCustomers = computed(() => {
   return customers.value.filter(c =>
     (c.customer_name || c.name).toLowerCase().includes(q)
   )
+})
+
+const filteredPriceLists = computed(() => {
+  const q = priceListSearch.value.toLowerCase()
+  return priceLists.value.filter(p => p.name.toLowerCase().includes(q))
+})
+
+const filteredTaxTemplates = computed(() => {
+  const q = taxSearch.value.toLowerCase()
+  return taxTemplates.value.filter(t => (t.title || t.name).toLowerCase().includes(q))
 })
 
 function filteredItems(index) {
@@ -259,8 +381,34 @@ function filteredWarehouses(index) {
   )
 }
 
+function closeAllDrops() {
+  customerDropOpen.value = false
+  priceListDropOpen.value = false
+  taxDropOpen.value = false
+  itemDropOpen.value = itemDropOpen.value.map(() => false)
+  warehouseDropOpen.value = warehouseDropOpen.value.map(() => false)
+}
+
+function openCustomerDrop() {
+  const next = !customerDropOpen.value
+  closeAllDrops()
+  customerDropOpen.value = next
+}
+
+function openPriceListDrop() {
+  const next = !priceListDropOpen.value
+  closeAllDrops()
+  priceListDropOpen.value = next
+}
+
+function openTaxDrop() {
+  const next = !taxDropOpen.value
+  closeAllDrops()
+  taxDropOpen.value = next
+}
+
 function addItem() {
-  newSalesOrder.value.items.push({ item_code: '', qty: 1, rate: 0, warehouse: '' })
+  newSalesOrder.value.items.push({ item_code: '', qty: 1, rate: 0, warehouse: DEFAULT_WAREHOUSE })
   itemDropOpen.value.push(false)
   itemSearch.value.push('')
   warehouseDropOpen.value.push(false)
@@ -276,15 +424,15 @@ function removeItem(index) {
 }
 
 function toggleItemDrop(index) {
-  itemDropOpen.value = itemDropOpen.value.map((v, i) => i === index ? !v : false)
-  warehouseDropOpen.value = warehouseDropOpen.value.map(() => false)
-  customerDropOpen.value = false
+  const next = !itemDropOpen.value[index]
+  closeAllDrops()
+  itemDropOpen.value[index] = next
 }
 
 function toggleWarehouseDrop(index) {
-  warehouseDropOpen.value = warehouseDropOpen.value.map((v, i) => i === index ? !v : false)
-  itemDropOpen.value = itemDropOpen.value.map(() => false)
-  customerDropOpen.value = false
+  const next = !warehouseDropOpen.value[index]
+  closeAllDrops()
+  warehouseDropOpen.value[index] = next
 }
 
 function closeWarehouseDrop(index) {
@@ -292,17 +440,85 @@ function closeWarehouseDrop(index) {
   warehouseSearch.value[index] = ''
 }
 
+async function fetchItemPrice(index, itemCode) {
+  const pl = newSalesOrder.value.price_list
+  if (!pl || !itemCode) return
+  try {
+    const res = await fetch(
+      `/api/resource/Item%20Price?filters=[["price_list","=","${encodeURIComponent(pl)}"],["item_code","=","${encodeURIComponent(itemCode)}"],["selling","=",1]]&fields=["price_list_rate"]&limit=1`,
+      { credentials: 'include' }
+    )
+    const { data } = await res.json()
+    if (data && data.length > 0 && data[0].price_list_rate != null) {
+      newSalesOrder.value.items[index].rate = data[0].price_list_rate
+    }
+  } catch (e) {
+    console.warn('Could not fetch item price:', e)
+  }
+}
+
 function selectItem(index, it) {
   newSalesOrder.value.items[index].item_code = it.name
-  // Pre-fill rate from standard selling rate if available
   if (it.standard_rate) newSalesOrder.value.items[index].rate = it.standard_rate
   itemDropOpen.value[index] = false
   itemSearch.value[index] = ''
+  fetchItemPrice(index, it.name)
+  fetchItemStock(it.name)
+}
+
+async function fetchItemStock(itemCode) {
+  if (!itemCode || itemStock.value[itemCode] !== undefined) return
+  try {
+    const res = await fetch(
+      `/api/method/live.api.stock.get_stock?item_codes=${encodeURIComponent(itemCode)}&warehouse=${encodeURIComponent('FG Stores')}`,
+      { credentials: 'include' }
+    )
+    const { message } = await res.json()
+    const row = (message || []).find(r => r.item_code === itemCode)
+    itemStock.value = { ...itemStock.value, [itemCode]: row?.available_qty ?? null }
+  } catch {
+    itemStock.value = { ...itemStock.value, [itemCode]: null }
+  }
+}
+
+function stockLabel(itemCode) {
+  const qty = itemStock.value[itemCode]
+  if (qty === undefined) return null
+  if (qty === null) return null
+  if (qty <= 0) return { text: 'Out of stock', cls: 'stock-out' }
+  if (qty <= 10) return { text: `Low: ${qty}`, cls: 'stock-low' }
+  return { text: `${qty} avail`, cls: 'stock-in' }
+}
+
+function openReminderModal() {
+  const tmr = new Date(Date.now() + 86400000)
+  reminderModal.value = {
+    open: true,
+    date: tmr.toISOString().slice(0, 16),
+    note: '',
+  }
+}
+
+function saveReminder() {
+  const cust = newSalesOrder.value.customer
+  if (!cust || !reminderModal.value.date) return
+  addReminder({
+    customer: cust,
+    customerName: customers.value.find(c => c.name === cust)?.customer_name || cust,
+    date: reminderModal.value.date,
+    note: reminderModal.value.note,
+  })
+  reminderModal.value.open = false
+  showSuccess('Reminder set!')
 }
 
 function formatCurrency(n) {
   if (!n) return '—'
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 }).format(n)
+  return new Intl.NumberFormat('en-KE', { style: 'currency', currency: 'KES', minimumFractionDigits: 2 }).format(n)
+}
+
+function getCsrfToken() {
+  return window.csrf_token || document.cookie.match(/csrftoken=([^;]+)/)?.[1] || ''
 }
 
 function showError(msg) {
@@ -316,31 +532,40 @@ function showSuccess(msg) {
 }
 
 async function loadFormData() {
-  // Load from cache immediately
   const cached = localStorage.getItem('live_form_cache')
   if (cached) {
-    const c = JSON.parse(cached)
-    customers.value = c.customers || []
-    items.value = c.items || []
-    warehouses.value = c.warehouses || []
+    try {
+      const c = JSON.parse(cached)
+      customers.value = c.customers || []
+      items.value = c.items || []
+      warehouses.value = c.warehouses || []
+      priceLists.value = c.priceLists || []
+      taxTemplates.value = c.taxTemplates || []
+    } catch {}
   }
 
   if (!isOnline.value) return
 
   loadingData.value = true
   try {
-    const [cRes, iRes, wRes] = await Promise.all([
+    const [cRes, iRes, wRes, plRes, ttRes] = await Promise.all([
       fetch('/api/resource/Customer?fields=["name","customer_name"]&limit_page_length=200', { credentials: 'include' }),
       fetch('/api/resource/Item?fields=["name","item_name","standard_rate"]&limit_page_length=200', { credentials: 'include' }),
       fetch('/api/resource/Warehouse?fields=["name","warehouse_name"]&limit_page_length=100', { credentials: 'include' }),
+      fetch('/api/resource/Price%20List?fields=["name"]&filters=[["enabled","=",1]]&limit_page_length=50', { credentials: 'include' }),
+      fetch('/api/resource/Sales%20Taxes%20and%20Charges%20Template?fields=["name","title"]&limit_page_length=50', { credentials: 'include' }),
     ])
     customers.value = (await cRes.json()).data || []
     items.value = (await iRes.json()).data || []
     warehouses.value = (await wRes.json()).data || []
+    priceLists.value = (await plRes.json()).data || []
+    taxTemplates.value = (await ttRes.json()).data || []
     localStorage.setItem('live_form_cache', JSON.stringify({
       customers: customers.value,
       items: items.value,
       warehouses: warehouses.value,
+      priceLists: priceLists.value,
+      taxTemplates: taxTemplates.value,
     }))
   } catch (e) {
     console.error('Error fetching form data:', e)
@@ -369,6 +594,9 @@ async function createSalesOrder(andSubmit) {
     const payload = {
       customer: order.customer,
       delivery_date: order.delivery_date,
+      currency: 'KES',
+      ...(order.price_list && { selling_price_list: order.price_list }),
+      ...(order.taxes_and_charges && { taxes_and_charges: order.taxes_and_charges }),
       items: order.items.map(i => ({
         item_code: i.item_code,
         qty: i.qty,
@@ -377,9 +605,14 @@ async function createSalesOrder(andSubmit) {
       })),
     }
 
+    const headers = {
+      'Content-Type': 'application/json',
+      'X-Frappe-CSRF-Token': getCsrfToken(),
+    }
+
     const res = await fetch('/api/resource/Sales%20Order', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       credentials: 'include',
       body: JSON.stringify(payload),
     })
@@ -392,11 +625,26 @@ async function createSalesOrder(andSubmit) {
     const { data } = await res.json()
     const orderId = data.name
 
-    if (andSubmit) {
-      // Submit via Frappe method
+    if (andSubmit && orderTotal.value >= 100000) {
+      const approvalRes = await fetch('/api/method/live.api.approval.submit_for_approval', {
+        method: 'POST',
+        headers,
+        credentials: 'include',
+        body: JSON.stringify({
+          order_data: JSON.stringify(payload),
+          total_amount: orderTotal.value,
+          customer: order.customer,
+          reason: order.notes || '',
+          sales_order: orderId,
+        }),
+      })
+      if (!approvalRes.ok) throw new Error('Could not submit for approval.')
+      pendingApproval.value = true
+      showSuccess(`Order ${orderId} sent for manager approval (total ≥ KES 100,000).`)
+    } else if (andSubmit) {
       const submitRes = await fetch(`/api/resource/Sales%20Order/${encodeURIComponent(orderId)}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         credentials: 'include',
         body: JSON.stringify({ docstatus: 1 }),
       })
@@ -406,10 +654,10 @@ async function createSalesOrder(andSubmit) {
       showSuccess(`Order ${orderId} saved as draft.`)
     }
 
+    completed.value = true
     resetForm()
-    setTimeout(() => router.push('/order-list'), 1500)
+    setTimeout(() => router.push('/salesOrderList'), 1500)
   } catch (e) {
-    // Queue on network failure
     addToQueue({ ...order })
     savedOffline.value = true
     setTimeout(() => { savedOffline.value = false }, 4000)
@@ -423,7 +671,9 @@ function resetForm() {
   newSalesOrder.value = {
     customer: '',
     delivery_date: '',
-    items: [{ item_code: '', qty: 1, rate: 0, warehouse: '' }],
+    price_list: '',
+    taxes_and_charges: '',
+    items: [{ item_code: '', qty: 1, rate: 0, warehouse: DEFAULT_WAREHOUSE }],
     notes: '',
   }
   itemDropOpen.value = [false]
@@ -433,11 +683,21 @@ function resetForm() {
 }
 
 onMounted(() => {
-  // Init dropdown arrays for initial single item
-  itemDropOpen.value = [false]
-  itemSearch.value = ['']
-  warehouseDropOpen.value = [false]
-  warehouseSearch.value = ['']
+  const preload = window.history.state?.preloadItems
+  if (preload && preload.length) {
+    newSalesOrder.value.items = preload.map(i => ({
+      item_code: i.item_code || '',
+      qty: i.qty || 1,
+      rate: i.rate || 0,
+      warehouse: i.warehouse || DEFAULT_WAREHOUSE,
+    }))
+    preload.forEach(i => { if (i.item_code) fetchItemStock(i.item_code) })
+  }
+  const len = newSalesOrder.value.items.length
+  itemDropOpen.value = Array(len).fill(false)
+  itemSearch.value = Array(len).fill('')
+  warehouseDropOpen.value = Array(len).fill(false)
+  warehouseSearch.value = Array(len).fill('')
   loadFormData()
 })
 </script>
@@ -613,5 +873,46 @@ onMounted(() => {
   border: 2px solid rgba(255,255,255,0.4); border-top-color: #fff;
   border-radius: 50%; animation: spin 0.7s linear infinite;
 }
+.stock-pill {
+  font-size: 0.6rem; font-weight: 800; padding: 2px 7px;
+  border-radius: 999px; letter-spacing: 0.03em;
+}
+.stock-in  { background: #dcfce7; color: #166534; }
+.stock-low { background: #fef9c3; color: #854d0e; }
+.stock-out { background: #fee2e2; color: #991b1b; }
+
+.reminder-btn {
+  width: 100%; padding: 11px; background: #f5f3ff; color: #7c3aed;
+  border: 1.5px solid #ddd6fe; border-radius: 12px;
+  font-weight: 700; font-size: 0.85rem; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+  margin-bottom: 16px;
+}
+
+.modal-backdrop {
+  position: fixed; inset: 0; background: rgba(0,0,0,.45);
+  z-index: 200; display: flex; align-items: flex-end;
+}
+.modal-sheet {
+  background: #fff; border-radius: 24px 24px 0 0; width: 100%;
+  padding-bottom: env(safe-area-inset-bottom, 16px);
+}
+.modal-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 20px 20px 12px; border-bottom: 1px solid #f1f5f9;
+}
+.modal-title { font-size: 1rem; font-weight: 700; color: #111827; margin: 0; }
+.modal-close {
+  background: #f3f4f6; border: none; border-radius: 50%;
+  width: 28px; height: 28px; cursor: pointer; color: #6b7280;
+}
+.modal-body { padding: 16px 20px; display: flex; flex-direction: column; gap: 10px; }
+.modal-label { font-size: 0.78rem; font-weight: 700; color: #374151; text-transform: uppercase; letter-spacing: 0.04em; }
+.modal-save-btn {
+  background: #7c3aed; color: #fff; border: none; border-radius: 12px;
+  padding: 13px; font-weight: 700; font-size: 0.9rem; cursor: pointer; margin-top: 4px;
+}
+.modal-save-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
 @keyframes spin { to { transform: rotate(360deg); } }
 </style>
