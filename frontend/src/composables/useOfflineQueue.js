@@ -74,7 +74,7 @@ async function syncEntry(entry) {
       item_code: i.item_code,
       qty: i.qty,
       rate: i.rate,
-      warehouse: i.warehouse,
+      warehouse: i.warehouse || 'Finished Goods - CAL',
     })),
   }
   const res = await fetch('/api/resource/Sales%20Order', {

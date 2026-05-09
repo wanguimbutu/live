@@ -208,34 +208,6 @@
             </div>
           </div>
 
-          <!-- Warehouse -->
-          <div class="field-group" style="margin-top:10px;margin-bottom:0">
-            <label class="field-label-sm">Delivery Warehouse</label>
-            <div class="searchable-select" :class="{ open: warehouseDropOpen[index] }">
-              <div class="select-display" @click="toggleWarehouseDrop(index)">
-                <span v-if="item.warehouse" class="select-value">
-                  {{ warehouses.find(w => w.name === item.warehouse)?.warehouse_name || item.warehouse }}
-                </span>
-                <span v-else class="select-placeholder">Select warehouse…</span>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" class="select-chevron">
-                  <polyline points="6 9 12 15 18 9"/>
-                </svg>
-              </div>
-              <div v-if="warehouseDropOpen[index]" class="select-dropdown">
-                <input v-model="warehouseSearch[index]" class="select-search" placeholder="Search warehouse…" @click.stop />
-                <div
-                  v-for="wh in filteredWarehouses(index)"
-                  :key="wh.name"
-                  class="select-option"
-                  :class="{ selected: item.warehouse === wh.name }"
-                  @click="item.warehouse = wh.name; closeWarehouseDrop(index)"
-                >
-                  {{ wh.warehouse_name || wh.name }}
-                </div>
-                <div v-if="filteredWarehouses(index).length === 0" class="select-empty">No warehouses found</div>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
 
@@ -308,7 +280,6 @@ const { addReminder } = useReminders()
 
 const customers = ref([])
 const items = ref([])
-const warehouses = ref([])
 const priceLists = ref([])
 const taxTemplates = ref([])
 const loadingData = ref(false)
@@ -322,8 +293,6 @@ const customerSearch = ref('')
 const customerDropOpen = ref(false)
 const itemDropOpen = ref([])
 const itemSearch = ref([])
-const warehouseDropOpen = ref([])
-const warehouseSearch = ref([])
 const priceListDropOpen = ref(false)
 const priceListSearch = ref('')
 const taxDropOpen = ref(false)
@@ -335,7 +304,7 @@ const pendingApproval = ref(false)
 const reminderModal = ref({ open: false, date: '', note: '' })
 
 const today = new Date().toISOString().split('T')[0]
-const DEFAULT_WAREHOUSE = 'FG Stores'
+const DEFAULT_WAREHOUSE = 'Finished Goods - CAL'
 
 const newSalesOrder = ref({
   customer: '',
@@ -374,19 +343,11 @@ function filteredItems(index) {
   )
 }
 
-function filteredWarehouses(index) {
-  const q = (warehouseSearch.value[index] || '').toLowerCase()
-  return warehouses.value.filter(w =>
-    (w.warehouse_name || w.name).toLowerCase().includes(q)
-  )
-}
-
 function closeAllDrops() {
   customerDropOpen.value = false
   priceListDropOpen.value = false
   taxDropOpen.value = false
   itemDropOpen.value = itemDropOpen.value.map(() => false)
-  warehouseDropOpen.value = warehouseDropOpen.value.map(() => false)
 }
 
 function openCustomerDrop() {
@@ -411,33 +372,18 @@ function addItem() {
   newSalesOrder.value.items.push({ item_code: '', qty: 1, rate: 0, warehouse: DEFAULT_WAREHOUSE })
   itemDropOpen.value.push(false)
   itemSearch.value.push('')
-  warehouseDropOpen.value.push(false)
-  warehouseSearch.value.push('')
 }
 
 function removeItem(index) {
   newSalesOrder.value.items.splice(index, 1)
   itemDropOpen.value.splice(index, 1)
   itemSearch.value.splice(index, 1)
-  warehouseDropOpen.value.splice(index, 1)
-  warehouseSearch.value.splice(index, 1)
 }
 
 function toggleItemDrop(index) {
   const next = !itemDropOpen.value[index]
   closeAllDrops()
   itemDropOpen.value[index] = next
-}
-
-function toggleWarehouseDrop(index) {
-  const next = !warehouseDropOpen.value[index]
-  closeAllDrops()
-  warehouseDropOpen.value[index] = next
-}
-
-function closeWarehouseDrop(index) {
-  warehouseDropOpen.value[index] = false
-  warehouseSearch.value[index] = ''
 }
 
 async function fetchItemPrice(index, itemCode) {
@@ -470,7 +416,7 @@ async function fetchItemStock(itemCode) {
   if (!itemCode || itemStock.value[itemCode] !== undefined) return
   try {
     const res = await fetch(
-      `/api/method/live.api.stock.get_stock?item_codes=${encodeURIComponent(itemCode)}&warehouse=${encodeURIComponent('FG Stores')}`,
+      `/api/method/live.api.stock.get_stock?item_codes=${encodeURIComponent(itemCode)}&warehouse=${encodeURIComponent(DEFAULT_WAREHOUSE)}`,
       { credentials: 'include' }
     )
     const { message } = await res.json()
@@ -538,7 +484,6 @@ async function loadFormData() {
       const c = JSON.parse(cached)
       customers.value = c.customers || []
       items.value = c.items || []
-      warehouses.value = c.warehouses || []
       priceLists.value = c.priceLists || []
       taxTemplates.value = c.taxTemplates || []
     } catch {}
@@ -548,22 +493,19 @@ async function loadFormData() {
 
   loadingData.value = true
   try {
-    const [cRes, iRes, wRes, plRes, ttRes] = await Promise.all([
+    const [cRes, iRes, plRes, ttRes] = await Promise.all([
       fetch('/api/resource/Customer?fields=["name","customer_name"]&limit_page_length=200', { credentials: 'include' }),
       fetch('/api/resource/Item?fields=["name","item_name","standard_rate"]&limit_page_length=200', { credentials: 'include' }),
-      fetch('/api/resource/Warehouse?fields=["name","warehouse_name"]&limit_page_length=100', { credentials: 'include' }),
       fetch('/api/resource/Price%20List?fields=["name"]&filters=[["enabled","=",1]]&limit_page_length=50', { credentials: 'include' }),
       fetch('/api/resource/Sales%20Taxes%20and%20Charges%20Template?fields=["name","title"]&limit_page_length=50', { credentials: 'include' }),
     ])
     customers.value = (await cRes.json()).data || []
     items.value = (await iRes.json()).data || []
-    warehouses.value = (await wRes.json()).data || []
     priceLists.value = (await plRes.json()).data || []
     taxTemplates.value = (await ttRes.json()).data || []
     localStorage.setItem('live_form_cache', JSON.stringify({
       customers: customers.value,
       items: items.value,
-      warehouses: warehouses.value,
       priceLists: priceLists.value,
       taxTemplates: taxTemplates.value,
     }))
@@ -579,7 +521,6 @@ async function createSalesOrder(andSubmit) {
   if (!order.customer) return showError('Please select a customer.')
   if (!order.delivery_date) return showError('Please set a delivery date.')
   if (order.items.some(i => !i.item_code)) return showError('Please select an item for each line.')
-  if (order.items.some(i => !i.warehouse)) return showError('Please select a warehouse for each item.')
 
   if (!isOnline.value) {
     addToQueue({ ...order })
@@ -678,8 +619,6 @@ function resetForm() {
   }
   itemDropOpen.value = [false]
   itemSearch.value = ['']
-  warehouseDropOpen.value = [false]
-  warehouseSearch.value = ['']
 }
 
 onMounted(() => {
@@ -689,15 +628,13 @@ onMounted(() => {
       item_code: i.item_code || '',
       qty: i.qty || 1,
       rate: i.rate || 0,
-      warehouse: i.warehouse || DEFAULT_WAREHOUSE,
+      warehouse: DEFAULT_WAREHOUSE,
     }))
     preload.forEach(i => { if (i.item_code) fetchItemStock(i.item_code) })
   }
   const len = newSalesOrder.value.items.length
   itemDropOpen.value = Array(len).fill(false)
   itemSearch.value = Array(len).fill('')
-  warehouseDropOpen.value = Array(len).fill(false)
-  warehouseSearch.value = Array(len).fill('')
   loadFormData()
 })
 </script>
