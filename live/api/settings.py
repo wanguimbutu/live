@@ -12,6 +12,7 @@ def get_app_settings():
 		doc = frappe.get_single("Live App Settings")
 		return {
 			"default_price_list": doc.default_price_list or "",
+			"default_taxes_and_charges": doc.default_taxes_and_charges or "",
 			"default_warehouse": doc.default_warehouse or "Finished Goods - CAL",
 			"approval_threshold": doc.approval_threshold or 100000,
 			"app_title": doc.app_title or "Live Sales",
@@ -21,6 +22,7 @@ def get_app_settings():
 	except Exception:
 		return {
 			"default_price_list": "",
+			"default_taxes_and_charges": "",
 			"default_warehouse": "Finished Goods - CAL",
 			"approval_threshold": 100000,
 			"app_title": "Live Sales",
@@ -32,6 +34,7 @@ def get_app_settings():
 @frappe.whitelist()
 def save_app_settings(
 	default_price_list="",
+	default_taxes_and_charges="",
 	default_warehouse="",
 	approval_threshold=100000,
 	app_title="Live Sales",
@@ -43,6 +46,7 @@ def save_app_settings(
 
 	doc = frappe.get_single("Live App Settings")
 	doc.default_price_list = default_price_list
+	doc.default_taxes_and_charges = default_taxes_and_charges
 	doc.default_warehouse = default_warehouse or "Finished Goods - CAL"
 	doc.approval_threshold = frappe.utils.flt(approval_threshold) or 100000
 	doc.app_title = app_title or "Live Sales"
@@ -58,6 +62,17 @@ def get_all_price_lists():
 	return frappe.get_all(
 		"Price List",
 		filters={"enabled": 1, "selling": 1},
+		fields=["name"],
+		order_by="name asc",
+	)
+
+
+@frappe.whitelist()
+def get_all_tax_templates():
+	"""Return active Sales Taxes and Charges Templates."""
+	return frappe.get_all(
+		"Sales Taxes and Charges Template",
+		filters={"disabled": 0},
 		fields=["name"],
 		order_by="name asc",
 	)

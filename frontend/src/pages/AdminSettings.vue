@@ -64,7 +64,32 @@
                   >{{ pl.name }}</div>
                 </div>
               </div>
-              <p class="field-hint">Pre-selected on every new order. Sales reps can change it.</p>
+              <p class="field-hint">Pre-selected on every new order.</p>
+            </div>
+
+            <div class="field-group">
+              <label class="field-label">Default Taxes &amp; Charges Template</label>
+              <div class="searchable-select" :class="{ open: taxDropOpen }">
+                <div class="select-display" @click="taxDropOpen = !taxDropOpen">
+                  <span v-if="form.default_taxes_and_charges" class="select-value">{{ form.default_taxes_and_charges }}</span>
+                  <span v-else class="select-placeholder">Select tax template…</span>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="6 9 12 15 18 9"/></svg>
+                </div>
+                <div v-if="taxDropOpen" class="select-dropdown">
+                  <input v-model="taxSearch" class="select-search" placeholder="Search…" @click.stop />
+                  <div class="select-option" @click="form.default_taxes_and_charges = ''; taxDropOpen = false">
+                    <em style="color:#94a3b8">— None —</em>
+                  </div>
+                  <div
+                    v-for="t in filteredTaxTemplates"
+                    :key="t.name"
+                    class="select-option"
+                    :class="{ selected: form.default_taxes_and_charges === t.name }"
+                    @click="form.default_taxes_and_charges = t.name; taxDropOpen = false; taxSearch = ''"
+                  >{{ t.name }}</div>
+                </div>
+              </div>
+              <p class="field-hint">Applied automatically to every order. Sales reps don't see this.</p>
             </div>
 
             <div class="field-group">
@@ -133,14 +158,18 @@ const errorMsg = ref('')
 const isSystemManager = ref(false)
 
 const priceLists = ref([])
+const taxTemplates = ref([])
 const warehouses = ref([])
 const plSearch = ref('')
+const taxSearch = ref('')
 const whSearch = ref('')
 const plDropOpen = ref(false)
+const taxDropOpen = ref(false)
 const whDropOpen = ref(false)
 
 const form = ref({
   default_price_list: '',
+  default_taxes_and_charges: '',
   default_warehouse: 'Finished Goods - CAL',
   approval_threshold: 100000,
   app_title: 'Live Sales',
@@ -150,6 +179,11 @@ const form = ref({
 const filteredPriceLists = computed(() => {
   const q = plSearch.value.toLowerCase()
   return priceLists.value.filter(p => p.name.toLowerCase().includes(q))
+})
+
+const filteredTaxTemplates = computed(() => {
+  const q = taxSearch.value.toLowerCase()
+  return taxTemplates.value.filter(t => t.name.toLowerCase().includes(q))
 })
 
 const filteredWarehouses = computed(() => {
@@ -164,9 +198,10 @@ function getCsrf() {
 async function loadSettings() {
   loading.value = true
   try {
-    const [settingsRes, plRes, whRes] = await Promise.all([
+    const [settingsRes, plRes, taxRes, whRes] = await Promise.all([
       fetch('/api/method/live.api.settings.get_app_settings', { credentials: 'include' }),
       fetch('/api/method/live.api.settings.get_all_price_lists', { credentials: 'include' }),
+      fetch('/api/method/live.api.settings.get_all_tax_templates', { credentials: 'include' }),
       fetch('/api/method/live.api.settings.get_all_warehouses', { credentials: 'include' }),
     ])
 
@@ -179,6 +214,9 @@ async function loadSettings() {
 
     const { message: pls } = await plRes.json()
     priceLists.value = pls || []
+
+    const { message: taxes } = await taxRes.json()
+    taxTemplates.value = taxes || []
 
     const { message: whs } = await whRes.json()
     warehouses.value = whs || []

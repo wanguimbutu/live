@@ -8,6 +8,7 @@
  "field_order": [
   "default_section",
   "default_price_list",
+  "default_taxes_and_charges",
   "default_warehouse",
   "approval_threshold",
   "column_break_1",
@@ -25,6 +26,12 @@
    "fieldtype": "Link",
    "label": "Default Price List",
    "options": "Price List"
+  },
+  {
+   "fieldname": "default_taxes_and_charges",
+   "fieldtype": "Link",
+   "label": "Default Taxes & Charges Template",
+   "options": "Sales Taxes and Charges Template"
   },
   {
    "fieldname": "default_warehouse",

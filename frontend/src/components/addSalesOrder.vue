@@ -80,60 +80,6 @@
         />
       </div>
 
-      <!-- Price List -->
-      <div class="field-group">
-        <label class="field-label">Price List</label>
-        <div class="searchable-select" :class="{ open: priceListDropOpen }">
-          <div class="select-display" @click="openPriceListDrop">
-            <span v-if="newSalesOrder.price_list" class="select-value">{{ newSalesOrder.price_list }}</span>
-            <span v-else class="select-placeholder">Select price list…</span>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" class="select-chevron">
-              <polyline points="6 9 12 15 18 9"/>
-            </svg>
-          </div>
-          <div v-if="priceListDropOpen" class="select-dropdown">
-            <input v-model="priceListSearch" class="select-search" placeholder="Search price list…" @click.stop />
-            <div
-              v-for="pl in filteredPriceLists"
-              :key="pl.name"
-              class="select-option"
-              :class="{ selected: newSalesOrder.price_list === pl.name }"
-              @click="newSalesOrder.price_list = pl.name; priceListDropOpen = false; priceListSearch = ''"
-            >
-              {{ pl.name }}
-            </div>
-            <div v-if="filteredPriceLists.length === 0" class="select-empty">No price lists found</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Taxes and Charges -->
-      <div class="field-group">
-        <label class="field-label">Taxes &amp; Charges</label>
-        <div class="searchable-select" :class="{ open: taxDropOpen }">
-          <div class="select-display" @click="openTaxDrop">
-            <span v-if="newSalesOrder.taxes_and_charges" class="select-value">{{ newSalesOrder.taxes_and_charges }}</span>
-            <span v-else class="select-placeholder">Select tax template…</span>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" class="select-chevron">
-              <polyline points="6 9 12 15 18 9"/>
-            </svg>
-          </div>
-          <div v-if="taxDropOpen" class="select-dropdown">
-            <input v-model="taxSearch" class="select-search" placeholder="Search taxes…" @click.stop />
-            <div
-              v-for="t in filteredTaxTemplates"
-              :key="t.name"
-              class="select-option"
-              :class="{ selected: newSalesOrder.taxes_and_charges === t.name }"
-              @click="newSalesOrder.taxes_and_charges = t.name; taxDropOpen = false; taxSearch = ''"
-            >
-              {{ t.title || t.name }}
-            </div>
-            <div v-if="filteredTaxTemplates.length === 0" class="select-empty">No tax templates found</div>
-          </div>
-        </div>
-      </div>
-
       <!-- Items -->
       <div class="field-group">
         <div class="items-header">
@@ -283,8 +229,6 @@ const { addReminder } = useReminders()
 
 const customers = ref([])
 const items = ref([])
-const priceLists = ref([])
-const taxTemplates = ref([])
 const loadingData = ref(false)
 const submitting = ref(false)
 const completed = ref(false)
@@ -296,10 +240,6 @@ const customerSearch = ref('')
 const customerDropOpen = ref(false)
 const itemDropOpen = ref([])
 const itemSearch = ref([])
-const priceListDropOpen = ref(false)
-const priceListSearch = ref('')
-const taxDropOpen = ref(false)
-const taxSearch = ref('')
 
 const itemStock = ref({})
 const pendingApproval = ref(false)
@@ -330,16 +270,6 @@ const filteredCustomers = computed(() => {
   )
 })
 
-const filteredPriceLists = computed(() => {
-  const q = priceListSearch.value.toLowerCase()
-  return priceLists.value.filter(p => p.name.toLowerCase().includes(q))
-})
-
-const filteredTaxTemplates = computed(() => {
-  const q = taxSearch.value.toLowerCase()
-  return taxTemplates.value.filter(t => (t.title || t.name).toLowerCase().includes(q))
-})
-
 function filteredItems(index) {
   const q = (itemSearch.value[index] || '').toLowerCase()
   if (!q) return items.value
@@ -350,8 +280,6 @@ function filteredItems(index) {
 
 function closeAllDrops() {
   customerDropOpen.value = false
-  priceListDropOpen.value = false
-  taxDropOpen.value = false
   itemDropOpen.value = itemDropOpen.value.map(() => false)
 }
 
@@ -359,18 +287,6 @@ function openCustomerDrop() {
   const next = !customerDropOpen.value
   closeAllDrops()
   customerDropOpen.value = next
-}
-
-function openPriceListDrop() {
-  const next = !priceListDropOpen.value
-  closeAllDrops()
-  priceListDropOpen.value = next
-}
-
-function openTaxDrop() {
-  const next = !taxDropOpen.value
-  closeAllDrops()
-  taxDropOpen.value = next
 }
 
 function addItem() {
@@ -491,9 +407,8 @@ async function loadAppSettings() {
     if (message.default_warehouse) {
       newSalesOrder.value.items = newSalesOrder.value.items.map(i => ({ ...i, warehouse: message.default_warehouse }))
     }
-    if (message.default_price_list && !newSalesOrder.value.price_list) {
-      newSalesOrder.value.price_list = message.default_price_list
-    }
+    if (message.default_price_list) newSalesOrder.value.price_list = message.default_price_list
+    if (message.default_taxes_and_charges) newSalesOrder.value.taxes_and_charges = message.default_taxes_and_charges
   } catch {}
 }
 
@@ -504,8 +419,6 @@ async function loadFormData() {
       const c = JSON.parse(cached)
       customers.value = c.customers || []
       items.value = c.items || []
-      priceLists.value = c.priceLists || []
-      taxTemplates.value = c.taxTemplates || []
     } catch {}
   }
 
@@ -513,21 +426,15 @@ async function loadFormData() {
 
   loadingData.value = true
   try {
-    const [cRes, iRes, plRes, ttRes] = await Promise.all([
+    const [cRes, iRes] = await Promise.all([
       fetch('/api/resource/Customer?fields=["name","customer_name"]&limit_page_length=200', { credentials: 'include' }),
-      fetch('/api/resource/Item?fields=["name","item_name","standard_rate"]&limit_page_length=200', { credentials: 'include' }),
-      fetch('/api/resource/Price%20List?fields=["name"]&filters=[["enabled","=",1]]&limit_page_length=50', { credentials: 'include' }),
-      fetch('/api/resource/Sales%20Taxes%20and%20Charges%20Template?fields=["name","title"]&limit_page_length=50', { credentials: 'include' }),
+      fetch('/api/resource/Item?fields=["name","item_name","standard_rate"]&filters=[["disabled","=",0]]&limit_page_length=500', { credentials: 'include' }),
     ])
     customers.value = (await cRes.json()).data || []
     items.value = (await iRes.json()).data || []
-    priceLists.value = (await plRes.json()).data || []
-    taxTemplates.value = (await ttRes.json()).data || []
     localStorage.setItem('live_form_cache', JSON.stringify({
       customers: customers.value,
       items: items.value,
-      priceLists: priceLists.value,
-      taxTemplates: taxTemplates.value,
     }))
   } catch (e) {
     console.error('Error fetching form data:', e)
@@ -661,203 +568,218 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.so-form-root {
-  background: #f8fafc;
-  min-height: 100%;
-  display: flex;
-  flex-direction: column;
-}
+/* ── Root ── */
+.so-form-root { background: #f1f5f9; min-height: 100%; display: flex; flex-direction: column; }
 
+/* ── Header (gradient) ── */
 .so-form-header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 16px 16px 8px;
-  background: #fff;
-  border-bottom: 1px solid #f1f5f9;
-  position: sticky;
-  top: 0;
-  z-index: 10;
+  display: flex; align-items: center; gap: 12px;
+  padding: 16px 16px 14px;
+  background: linear-gradient(135deg, #1e3a8a 0%, #4338ca 100%);
+  position: sticky; top: 0; z-index: 10;
 }
 .back-btn {
   width: 36px; height: 36px;
-  background: #f1f5f9; border: none; border-radius: 10px;
+  background: rgba(255,255,255,0.15); border: none; border-radius: 10px;
   display: flex; align-items: center; justify-content: center;
-  cursor: pointer; color: #374151; flex-shrink: 0;
+  cursor: pointer; color: #fff; flex-shrink: 0;
 }
-.so-form-title { font-size: 1.1rem; font-weight: 800; color: #0f172a; margin: 0; }
+.so-form-title { font-size: 1.1rem; font-weight: 800; color: #fff; margin: 0; }
 
+/* ── Banners ── */
 .banner {
   display: flex; align-items: center; gap: 8px;
-  padding: 10px 16px; font-size: 0.8rem;
-  border-bottom: 1px solid transparent;
+  padding: 10px 16px; font-size: 0.82rem; font-weight: 500;
+  border-left: 3px solid transparent;
 }
-.banner-amber { background: #fffbeb; border-color: #fde68a; color: #92400e; }
-.banner-green { background: #f0fdf4; border-color: #bbf7d0; color: #166534; }
-.banner-red { background: #fef2f2; border-color: #fecaca; color: #991b1b; }
+.banner-amber { background: #fffbeb; border-color: #f59e0b; color: #78350f; }
+.banner-green  { background: #f0fdf4; border-color: #22c55e; color: #14532d; }
+.banner-red    { background: #fef2f2; border-color: #ef4444; color: #7f1d1d; }
 
+/* ── Body ── */
 .so-form-body {
-  padding: 16px;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding-bottom: 100px;
+  padding: 14px 14px 110px;
+  flex: 1; display: flex; flex-direction: column; gap: 0;
 }
 
-.field-group { margin-bottom: 16px; }
+/* ── Section cards ── */
+.section-card {
+  background: #fff; border-radius: 16px;
+  padding: 16px; margin-bottom: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+}
+.section-title {
+  font-size: 0.68rem; font-weight: 700; letter-spacing: 0.07em;
+  text-transform: uppercase; color: #6366f1; margin: 0 0 14px;
+}
+
+/* ── Fields ── */
+.field-group { margin-bottom: 14px; }
+.field-group:last-child { margin-bottom: 0; }
 .field-label {
-  display: block; font-size: 0.8rem; font-weight: 700;
-  color: #374151; margin-bottom: 6px;
-  text-transform: uppercase; letter-spacing: 0.04em;
+  display: block; font-size: 0.75rem; font-weight: 700;
+  color: #374151; margin-bottom: 6px; letter-spacing: 0.03em;
 }
 .field-label-sm {
-  display: block; font-size: 0.72rem; font-weight: 600;
-  color: #94a3b8; margin-bottom: 4px;
+  display: block; font-size: 0.68rem; font-weight: 600;
+  color: #9ca3af; margin-bottom: 4px; letter-spacing: 0.03em;
 }
 .required { color: #ef4444; }
 .field-input {
-  width: 100%; padding: 10px 12px;
-  border: 1.5px solid #e2e8f0; border-radius: 10px;
-  font-size: 0.9rem; color: #1e293b; background: #fff;
+  width: 100%; padding: 11px 13px;
+  border: 1.5px solid #e5e7eb; border-radius: 10px;
+  font-size: 0.9rem; color: #111827; background: #fff;
   box-sizing: border-box; appearance: none;
+  transition: border-color 0.15s;
 }
-.field-input:focus { outline: none; border-color: #1d4ed8; }
+.field-input:focus { outline: none; border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.1); }
 .field-textarea {
-  width: 100%; padding: 10px 12px;
-  border: 1.5px solid #e2e8f0; border-radius: 10px;
-  font-size: 0.9rem; color: #1e293b; background: #fff;
-  box-sizing: border-box; resize: none;
+  width: 100%; padding: 11px 13px;
+  border: 1.5px solid #e5e7eb; border-radius: 10px;
+  font-size: 0.9rem; color: #111827; background: #fff;
+  box-sizing: border-box; resize: none; transition: border-color 0.15s;
 }
-.field-textarea:focus { outline: none; border-color: #1d4ed8; }
+.field-textarea:focus { outline: none; border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.1); }
 
-/* Searchable select */
+/* ── Searchable select ── */
 .searchable-select { position: relative; }
 .select-display {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 10px 12px; border: 1.5px solid #e2e8f0; border-radius: 10px;
-  background: #fff; cursor: pointer; min-height: 42px;
+  padding: 11px 13px; border: 1.5px solid #e5e7eb; border-radius: 10px;
+  background: #fff; cursor: pointer; min-height: 44px;
+  transition: border-color 0.15s;
 }
-.searchable-select.open .select-display { border-color: #1d4ed8; }
-.select-value { font-size: 0.9rem; color: #1e293b; }
-.select-placeholder { font-size: 0.9rem; color: #94a3b8; }
-.select-chevron { color: #94a3b8; flex-shrink: 0; }
+.searchable-select.open .select-display { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.1); }
+.select-value { font-size: 0.9rem; color: #111827; }
+.select-placeholder { font-size: 0.9rem; color: #9ca3af; }
+.select-chevron { color: #9ca3af; flex-shrink: 0; }
 .select-dropdown {
   position: absolute; left: 0; right: 0; top: calc(100% + 4px);
-  background: #fff; border: 1.5px solid #e2e8f0; border-radius: 12px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.1); z-index: 50;
-  max-height: 220px; overflow-y: auto;
+  background: #fff; border: 1.5px solid #e5e7eb; border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.12); z-index: 50;
+  max-height: 240px; overflow-y: auto;
 }
 .select-search {
-  width: 100%; padding: 10px 12px;
-  border: none; border-bottom: 1px solid #f1f5f9;
-  font-size: 0.88rem; color: #1e293b; background: transparent;
-  box-sizing: border-box;
+  width: 100%; padding: 10px 13px;
+  border: none; border-bottom: 1px solid #f3f4f6;
+  font-size: 0.88rem; color: #111827; background: transparent; box-sizing: border-box;
 }
 .select-search:focus { outline: none; }
-.select-option {
-  padding: 10px 14px; font-size: 0.88rem; color: #374151;
-  cursor: pointer;
-}
-.select-option:hover { background: #f8fafc; }
-.select-option.selected { background: #eff6ff; color: #1d4ed8; font-weight: 600; }
-.select-empty { padding: 12px 14px; font-size: 0.85rem; color: #94a3b8; text-align: center; }
-.select-loading { padding: 12px 14px; font-size: 0.85rem; color: #94a3b8; text-align: center; }
+.select-option { padding: 10px 14px; font-size: 0.88rem; color: #374151; cursor: pointer; display: flex; flex-direction: column; }
+.select-option:hover { background: #f9fafb; }
+.select-option.selected { background: #eef2ff; color: #4f46e5; font-weight: 600; }
+.select-empty, .select-loading { padding: 14px; font-size: 0.85rem; color: #9ca3af; text-align: center; }
 
-/* Items */
+/* ── Item display ── */
+.item-selected-display { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+.sel-code { font-weight: 700; color: #111827; font-size: 0.88rem; }
+.sel-sep { color: #d1d5db; }
+.sel-name { color: #6b7280; font-size: 0.8rem; }
+.opt-code { font-weight: 700; color: #111827; font-size: 0.85rem; }
+.opt-name { color: #6b7280; font-size: 0.74rem; margin-top: 1px; }
+
+/* ── Items section ── */
 .items-header {
   display: flex; justify-content: space-between; align-items: center;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
 .add-item-btn {
   display: flex; align-items: center; gap: 6px;
-  padding: 6px 12px; background: #eff6ff; color: #1d4ed8;
-  border: none; border-radius: 8px; font-size: 0.8rem; font-weight: 600;
-  cursor: pointer;
+  padding: 7px 14px; background: #eef2ff; color: #4f46e5;
+  border: none; border-radius: 9px; font-size: 0.8rem; font-weight: 700; cursor: pointer;
 }
+
 .item-card {
-  background: #fff; border: 1.5px solid #e2e8f0; border-radius: 14px;
-  padding: 14px; margin-bottom: 10px;
+  background: #fff; border-radius: 14px;
+  border-left: 3px solid #6366f1; padding: 14px;
+  margin-bottom: 10px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
 }
 .item-card-top {
-  display: flex; justify-content: space-between; align-items: center;
-  margin-bottom: 10px;
+  display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;
 }
-.item-num { font-size: 0.72rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; }
+.item-num {
+  font-size: 0.68rem; font-weight: 700; color: #6366f1;
+  text-transform: uppercase; letter-spacing: 0.06em;
+  background: #eef2ff; padding: 2px 8px; border-radius: 6px;
+}
 .remove-item-btn {
-  background: #fef2f2; border: none; border-radius: 6px;
+  background: #fef2f2; border: none; border-radius: 7px;
   width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;
-  cursor: pointer; color: #dc2626;
+  cursor: pointer; color: #ef4444;
 }
 .item-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
 .item-field { display: flex; flex-direction: column; }
 .amount-display {
-  padding: 10px 12px; background: #f8fafc; border: 1.5px solid #f1f5f9;
-  border-radius: 10px; font-size: 0.88rem; font-weight: 600; color: #1e293b;
-  min-height: 42px; display: flex; align-items: center;
+  padding: 11px 13px; background: #f9fafb; border: 1.5px solid #f3f4f6;
+  border-radius: 10px; font-size: 0.88rem; font-weight: 700; color: #4f46e5;
+  min-height: 44px; display: flex; align-items: center;
 }
 
+/* ── Stock pills ── */
+.stock-pill {
+  font-size: 0.6rem; font-weight: 800; padding: 2px 8px;
+  border-radius: 999px; letter-spacing: 0.04em;
+}
+.stock-in  { background: #dcfce7; color: #15803d; }
+.stock-low { background: #fef9c3; color: #854d0e; }
+.stock-out { background: #fee2e2; color: #b91c1c; }
+
+/* ── Order total ── */
 .order-total {
   display: flex; justify-content: space-between; align-items: center;
-  background: #eff6ff; border: 1.5px solid #bfdbfe;
-  border-radius: 12px; padding: 14px 16px;
-  margin-bottom: 16px;
+  background: linear-gradient(135deg, #eef2ff 0%, #ede9fe 100%);
+  border: 1.5px solid #c7d2fe;
+  border-radius: 14px; padding: 14px 18px; margin-bottom: 12px;
 }
-.total-label { font-size: 0.8rem; font-weight: 700; color: #1d4ed8; text-transform: uppercase; letter-spacing: 0.04em; }
-.total-value { font-size: 1.2rem; font-weight: 800; color: #1d4ed8; }
+.total-label {
+  font-size: 0.75rem; font-weight: 700; color: #4f46e5;
+  text-transform: uppercase; letter-spacing: 0.06em;
+}
+.total-value { font-size: 1.3rem; font-weight: 800; color: #3730a3; }
 
-/* Actions */
+/* ── Reminder button ── */
+.reminder-btn {
+  width: 100%; padding: 11px; background: #fdf4ff; color: #7c3aed;
+  border: 1.5px solid #e9d5ff; border-radius: 12px;
+  font-weight: 700; font-size: 0.85rem; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+  margin-bottom: 12px;
+}
+
+/* ── Bottom actions ── */
 .so-form-actions {
   position: fixed; bottom: 0; left: 0; right: 0;
-  background: #fff; border-top: 1px solid #f1f5f9;
+  background: #fff; border-top: 1px solid #e5e7eb;
   padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
-  display: flex; gap: 10px;
-  z-index: 20;
+  display: flex; gap: 10px; z-index: 20;
+  box-shadow: 0 -4px 16px rgba(0,0,0,0.06);
 }
 .btn-save {
-  flex: 1; padding: 13px; background: #f1f5f9; color: #374151;
-  border: none; border-radius: 12px; font-weight: 700; font-size: 0.9rem;
-  cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
+  flex: 1; padding: 13px; background: #f3f4f6; color: #374151;
+  border: 1.5px solid #e5e7eb; border-radius: 12px;
+  font-weight: 700; font-size: 0.9rem; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
 }
-.btn-save:disabled { opacity: 0.55; cursor: not-allowed; }
+.btn-save:disabled { opacity: 0.45; cursor: not-allowed; }
 .btn-submit {
-  flex: 2; padding: 13px; background: #1d4ed8; color: #fff;
-  border: none; border-radius: 12px; font-weight: 700; font-size: 0.9rem;
-  cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
+  flex: 2; padding: 13px;
+  background: linear-gradient(135deg, #2563eb 0%, #4f46e5 100%);
+  color: #fff; border: none; border-radius: 12px;
+  font-weight: 700; font-size: 0.9rem; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  box-shadow: 0 4px 12px rgba(79,70,229,0.35);
 }
-.btn-submit:disabled { opacity: 0.55; cursor: not-allowed; }
+.btn-submit:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; }
 .btn-spinner {
   display: inline-block; width: 16px; height: 16px;
   border: 2px solid rgba(255,255,255,0.4); border-top-color: #fff;
   border-radius: 50%; animation: spin 0.7s linear infinite;
 }
-.item-selected-display { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
-.sel-code { font-weight: 700; color: #1e293b; font-size: 0.88rem; }
-.sel-sep { color: #cbd5e1; }
-.sel-name { color: #64748b; font-size: 0.82rem; }
 
-.item-opt { flex-direction: column; align-items: flex-start; gap: 1px; }
-.opt-code { font-weight: 700; color: #1e293b; font-size: 0.85rem; }
-.opt-name { color: #64748b; font-size: 0.75rem; }
-
-.stock-pill {
-  font-size: 0.6rem; font-weight: 800; padding: 2px 7px;
-  border-radius: 999px; letter-spacing: 0.03em;
-}
-.stock-in  { background: #dcfce7; color: #166534; }
-.stock-low { background: #fef9c3; color: #854d0e; }
-.stock-out { background: #fee2e2; color: #991b1b; }
-
-.reminder-btn {
-  width: 100%; padding: 11px; background: #f5f3ff; color: #7c3aed;
-  border: 1.5px solid #ddd6fe; border-radius: 12px;
-  font-weight: 700; font-size: 0.85rem; cursor: pointer;
-  display: flex; align-items: center; justify-content: center; gap: 7px;
-  margin-bottom: 16px;
-}
-
+/* ── Reminder modal ── */
 .modal-backdrop {
-  position: fixed; inset: 0; background: rgba(0,0,0,.45);
+  position: fixed; inset: 0; background: rgba(15,23,42,0.5);
   z-index: 200; display: flex; align-items: flex-end;
 }
 .modal-sheet {
@@ -866,17 +788,21 @@ onMounted(() => {
 }
 .modal-header {
   display: flex; justify-content: space-between; align-items: center;
-  padding: 20px 20px 12px; border-bottom: 1px solid #f1f5f9;
+  padding: 20px 20px 12px; border-bottom: 1px solid #f3f4f6;
 }
-.modal-title { font-size: 1rem; font-weight: 700; color: #111827; margin: 0; }
+.modal-title { font-size: 1rem; font-weight: 800; color: #111827; margin: 0; }
 .modal-close {
   background: #f3f4f6; border: none; border-radius: 50%;
-  width: 28px; height: 28px; cursor: pointer; color: #6b7280;
+  width: 28px; height: 28px; cursor: pointer; color: #6b7280; font-size: 0.85rem;
 }
 .modal-body { padding: 16px 20px; display: flex; flex-direction: column; gap: 10px; }
-.modal-label { font-size: 0.78rem; font-weight: 700; color: #374151; text-transform: uppercase; letter-spacing: 0.04em; }
+.modal-label {
+  font-size: 0.72rem; font-weight: 700; color: #374151;
+  text-transform: uppercase; letter-spacing: 0.05em;
+}
 .modal-save-btn {
-  background: #7c3aed; color: #fff; border: none; border-radius: 12px;
+  background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+  color: #fff; border: none; border-radius: 12px;
   padding: 13px; font-weight: 700; font-size: 0.9rem; cursor: pointer; margin-top: 4px;
 }
 .modal-save-btn:disabled { opacity: 0.45; cursor: not-allowed; }
