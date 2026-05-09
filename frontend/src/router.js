@@ -79,6 +79,10 @@ const routes = [
         path: '/approvals',
         component: () => import('@/pages/PendingApprovals.vue'),
       },
+      {
+        path: '/admin-settings',
+        component: () => import('@/pages/AdminSettings.vue'),
+      },
     ]
   }
 ]

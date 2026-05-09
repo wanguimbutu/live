@@ -38,10 +38,6 @@
           <ion-label>Collections</ion-label>
         </ion-tab-button>
 
-        <ion-tab-button tab="dashboard" href="/dashboard">
-          <ion-icon :icon="barChart" />
-          <ion-label>Dashboard</ion-label>
-        </ion-tab-button>
       </ion-tab-bar>
     </ion-tabs>
   </ion-page>
@@ -49,7 +45,7 @@
 
 <script setup>
 import { IonPage, IonTabs, IonRouterOutlet, IonTabBar, IonTabButton, IonLabel, IonIcon, IonBadge } from '@ionic/vue'
-import { home, fingerPrint, cart, person, location, wallet, barChart } from 'ionicons/icons'
+import { home, fingerPrint, cart, person, location, wallet } from 'ionicons/icons'
 import SyncBanner from './SyncBanner.vue'
 import InstallPrompt from './InstallPrompt.vue'
 import { useOfflineQueue } from '../composables/useOfflineQueue'

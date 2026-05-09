@@ -277,21 +277,18 @@ async function fetchCustomers(isSearch = false) {
 async function fetchCustomersFromServer(isSearch = false, background = false) {
   if (!background) loadingCustomers.value = true
   try {
-    const res = await fetch('/api/method/frappe.desk.reportview.get', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({
-        doctype: 'Customer',
-        fields: ['name', 'customer_name'],
-        order_by: 'customer_name asc',
-        filters: searchQuery.value ? [['customer_name', 'like', `%${searchQuery.value}%`]] : [],
-        limit_start: isSearch || background ? 0 : limitStart.value,
-        limit_page_length: LIMIT,
-      }),
+    const filters = searchQuery.value ? [['customer_name', 'like', `%${searchQuery.value}%`]] : []
+    const params = new URLSearchParams({
+      fields: JSON.stringify(['name', 'customer_name']),
+      filters: JSON.stringify(filters),
+      order_by: 'customer_name asc',
+      limit_start: String(isSearch || background ? 0 : limitStart.value),
+      limit_page_length: String(LIMIT),
     })
-    const data = await res.json()
-    const fetched = data?.message?.values?.map(v => ({ name: v[0], customer_name: v[1] })) || []
+    const res = await fetch(`/api/resource/Customer?${params}`, { credentials: 'include' })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    const { data } = await res.json()
+    const fetched = (data || []).map(c => ({ name: c.name, customer_name: c.customer_name }))
     if (isSearch || background) {
       customers.value = fetched
       limitStart.value = fetched.length

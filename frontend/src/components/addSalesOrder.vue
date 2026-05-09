@@ -168,24 +168,27 @@
             </div>
             <div class="searchable-select" :class="{ open: itemDropOpen[index] }">
               <div class="select-display" @click="toggleItemDrop(index)">
-                <span v-if="item.item_code" class="select-value">
-                  {{ items.find(i => i.name === item.item_code)?.item_name || item.item_code }}
+                <span v-if="item.item_code" class="select-value item-selected-display">
+                  <span class="sel-code">{{ item.item_code }}</span>
+                  <span class="sel-sep">—</span>
+                  <span class="sel-name">{{ items.find(i => i.name === item.item_code)?.item_name || '' }}</span>
                 </span>
-                <span v-else class="select-placeholder">Select item…</span>
+                <span v-else class="select-placeholder">Search by code or name…</span>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" class="select-chevron">
                   <polyline points="6 9 12 15 18 9"/>
                 </svg>
               </div>
               <div v-if="itemDropOpen[index]" class="select-dropdown">
-                <input v-model="itemSearch[index]" class="select-search" placeholder="Search items…" @click.stop />
+                <input v-model="itemSearch[index]" class="select-search" placeholder="Search code or name…" @click.stop />
                 <div
                   v-for="it in filteredItems(index)"
                   :key="it.name"
-                  class="select-option"
+                  class="select-option item-opt"
                   :class="{ selected: item.item_code === it.name }"
                   @click="selectItem(index, it)"
                 >
-                  {{ it.item_name || it.name }}
+                  <span class="opt-code">{{ it.name }}</span>
+                  <span class="opt-name">{{ it.item_name }}</span>
                 </div>
                 <div v-if="filteredItems(index).length === 0" class="select-empty">No items found</div>
               </div>
@@ -305,6 +308,7 @@ const reminderModal = ref({ open: false, date: '', note: '' })
 
 const today = new Date().toISOString().split('T')[0]
 const DEFAULT_WAREHOUSE = 'Finished Goods - CAL'
+const approvalThreshold = ref(100000)
 
 const newSalesOrder = ref({
   customer: '',
@@ -338,8 +342,9 @@ const filteredTaxTemplates = computed(() => {
 
 function filteredItems(index) {
   const q = (itemSearch.value[index] || '').toLowerCase()
+  if (!q) return items.value
   return items.value.filter(i =>
-    (i.item_name || i.name).toLowerCase().includes(q)
+    i.name.toLowerCase().includes(q) || (i.item_name || '').toLowerCase().includes(q)
   )
 }
 
@@ -477,6 +482,21 @@ function showSuccess(msg) {
   setTimeout(() => { savedMsg.value = '' }, 4000)
 }
 
+async function loadAppSettings() {
+  try {
+    const res = await fetch('/api/method/live.api.settings.get_app_settings', { credentials: 'include' })
+    const { message } = await res.json()
+    if (!message) return
+    if (message.approval_threshold) approvalThreshold.value = message.approval_threshold
+    if (message.default_warehouse) {
+      newSalesOrder.value.items = newSalesOrder.value.items.map(i => ({ ...i, warehouse: message.default_warehouse }))
+    }
+    if (message.default_price_list && !newSalesOrder.value.price_list) {
+      newSalesOrder.value.price_list = message.default_price_list
+    }
+  } catch {}
+}
+
 async function loadFormData() {
   const cached = localStorage.getItem('live_form_cache')
   if (cached) {
@@ -566,7 +586,7 @@ async function createSalesOrder(andSubmit) {
     const { data } = await res.json()
     const orderId = data.name
 
-    if (andSubmit && orderTotal.value >= 100000) {
+    if (andSubmit && orderTotal.value >= approvalThreshold.value) {
       const approvalRes = await fetch('/api/method/live.api.approval.submit_for_approval', {
         method: 'POST',
         headers,
@@ -635,6 +655,7 @@ onMounted(() => {
   const len = newSalesOrder.value.items.length
   itemDropOpen.value = Array(len).fill(false)
   itemSearch.value = Array(len).fill('')
+  loadAppSettings()
   loadFormData()
 })
 </script>
@@ -810,6 +831,15 @@ onMounted(() => {
   border: 2px solid rgba(255,255,255,0.4); border-top-color: #fff;
   border-radius: 50%; animation: spin 0.7s linear infinite;
 }
+.item-selected-display { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+.sel-code { font-weight: 700; color: #1e293b; font-size: 0.88rem; }
+.sel-sep { color: #cbd5e1; }
+.sel-name { color: #64748b; font-size: 0.82rem; }
+
+.item-opt { flex-direction: column; align-items: flex-start; gap: 1px; }
+.opt-code { font-weight: 700; color: #1e293b; font-size: 0.85rem; }
+.opt-name { color: #64748b; font-size: 0.75rem; }
+
 .stock-pill {
   font-size: 0.6rem; font-weight: 800; padding: 2px 7px;
   border-radius: 999px; letter-spacing: 0.03em;

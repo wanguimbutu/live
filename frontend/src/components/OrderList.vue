@@ -156,7 +156,7 @@ function formatDate(d) {
 
 function formatCurrency(n) {
   if (!n) return ''
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 }).format(n)
+  return new Intl.NumberFormat('en-KE', { style: 'currency', currency: 'KES', minimumFractionDigits: 0 }).format(n)
 }
 
 function formatSavedAt(iso) {
@@ -190,31 +190,22 @@ async function fetchOrders(reset = false) {
 async function fetchOrdersFromServer(reset = false, background = false) {
   if (!background) loading.value = true
   try {
-    const filters = []
+    const filters = [['docstatus', '!=', '2']]
     if (searchQuery.value) filters.push(['customer_name', 'like', `%${searchQuery.value}%`])
     if (activeTab.value !== 'all') filters.push(['status', '=', activeTab.value])
 
-    const payload = {
-      doctype: 'Sales Order',
-      fields: ['name', 'customer_name', 'transaction_date', 'delivery_date', 'status', 'grand_total'],
+    const params = new URLSearchParams({
+      fields: JSON.stringify(['name', 'customer_name', 'transaction_date', 'delivery_date', 'status', 'grand_total']),
+      filters: JSON.stringify(filters),
       order_by: 'creation desc',
-      limit_start: reset || background ? 0 : limitStart.value,
-      limit_page_length: LIMIT,
-      filters: filters.length ? filters : undefined,
-    }
-
-    const res = await fetch('/api/method/frappe.desk.reportview.get', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify(payload),
+      limit_start: String(reset || background ? 0 : limitStart.value),
+      limit_page_length: String(LIMIT),
     })
-    const data = await res.json()
-    const keys = data?.message?.keys || []
-    const values = data?.message?.values || []
-    const orders = values.map(row =>
-      row.reduce((obj, val, i) => { obj[keys[i]] = val; return obj }, {})
-    )
+
+    const res = await fetch(`/api/resource/Sales%20Order?${params}`, { credentials: 'include' })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    const { data } = await res.json()
+    const orders = data || []
 
     if (reset || background) {
       salesOrders.value = orders
