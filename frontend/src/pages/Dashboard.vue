@@ -3,282 +3,322 @@
     <ion-content :fullscreen="true">
       <div class="dash-root">
 
-        <!-- ─── Header ──────────────────────────────────────────────────────── -->
-        <div class="dash-header">
-          <div class="dash-header-top">
-            <button class="back-btn" @click="$router.back()">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="18" height="18">
-                <polyline points="15 18 9 12 15 6"/>
-              </svg>
+        <!-- ── Top bar ──────────────────────────────────────────────────────── -->
+        <div class="topbar">
+          <div class="topbar-left">
+            <button class="icon-btn" @click="$router.back()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><polyline points="15 18 9 12 15 6"/></svg>
             </button>
-            <div class="dash-title-group">
-              <h1 class="dash-title">Analytics</h1>
-              <p class="dash-sub">{{ formatDateRange }}</p>
+            <div>
+              <h1 class="topbar-title">Analytics</h1>
+              <p class="topbar-sub">{{ formatDateRange }}</p>
             </div>
-            <button class="export-all-btn" @click="exportAll" title="Export all reports">
+          </div>
+          <div class="topbar-right">
+            <button class="ghost-btn" @click="filterOpen = !filterOpen">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="11" y1="18" x2="13" y2="18"/></svg>
+              {{ formatDateRange }}
+            </button>
+            <button class="icon-btn" @click="exportAll" title="Export all to Excel">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             </button>
-            <button class="filter-btn" @click="filterOpen = !filterOpen">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15">
-                <line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="11" y1="18" x2="13" y2="18"/>
-              </svg>
-              Filter
-            </button>
-          </div>
-
-          <!-- Tab bar -->
-          <div class="tab-row">
-            <button
-              v-for="t in tabs"
-              :key="t.key"
-              class="tab-btn"
-              :class="{ active: activeTab === t.key }"
-              @click="activeTab = t.key"
-            >{{ t.label }}</button>
           </div>
         </div>
 
-        <!-- ─── Filter drawer ─────────────────────────────────────────────── -->
-        <div v-if="filterOpen" class="filter-drawer">
-          <div class="filter-grid">
-            <div class="filter-field">
-              <label class="filter-label">From</label>
-              <input v-model="filters.fromDate" type="date" class="filter-input" />
+        <!-- ── Filter panel ────────────────────────────────────────────────── -->
+        <transition name="slide">
+          <div v-if="filterOpen" class="filter-panel">
+            <div class="filter-grid">
+              <div class="filter-field">
+                <label class="field-lbl">From</label>
+                <input v-model="filters.fromDate" type="date" class="field-input" />
+              </div>
+              <div class="filter-field">
+                <label class="field-lbl">To</label>
+                <input v-model="filters.toDate" type="date" class="field-input" />
+              </div>
+              <div class="filter-field" v-if="teamMembers.length">
+                <label class="field-lbl">Sales Rep</label>
+                <select v-model="filters.salesPerson" class="field-input">
+                  <option value="">All reps</option>
+                  <option v-for="m in teamMembers" :key="m.user" :value="m.user">{{ m.name }}</option>
+                </select>
+              </div>
             </div>
-            <div class="filter-field">
-              <label class="filter-label">To</label>
-              <input v-model="filters.toDate" type="date" class="filter-input" />
-            </div>
-            <div class="filter-field" v-if="teamMembers.length">
-              <label class="filter-label">Sales Rep</label>
-              <select v-model="filters.salesPerson" class="filter-input">
-                <option value="">All reps</option>
-                <option v-for="m in teamMembers" :key="m.user" :value="m.user">{{ m.name }}</option>
-              </select>
+            <div class="filter-actions">
+              <button class="btn-ghost" @click="resetFilters">Reset</button>
+              <button class="btn-primary" @click="applyFilters">Apply</button>
             </div>
           </div>
-          <div class="filter-actions">
-            <button class="btn-ghost" @click="resetFilters">Reset</button>
-            <button class="btn-primary" @click="applyFilters">Apply</button>
+        </transition>
+
+        <!-- ── Alert strip ────────────────────────────────────────────────── -->
+        <div v-if="alerts.length && activeTab === 'overview'" class="alert-strip">
+          <div
+            v-for="(a, i) in alerts.slice(0, 3)" :key="i"
+            class="alert-pill"
+            :class="`pill-${a.severity}`"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            {{ a.message }}
+            <router-link v-if="a.type === 'pending_approvals'" to="/approvals" class="pill-link">Review →</router-link>
           </div>
         </div>
 
-        <!-- ─── Alerts ────────────────────────────────────────────────────── -->
-        <template v-if="alerts.length && activeTab === 'overview'">
-          <div v-for="(a, i) in alerts.slice(0, 3)" :key="i" class="alert-banner" :class="`alert-${a.severity}`">
-            <div class="alert-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
-                <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
-              </svg>
-            </div>
-            <span class="alert-msg">{{ a.message }}</span>
-            <router-link v-if="a.type === 'pending_approvals'" to="/approvals" class="alert-link">Review →</router-link>
-          </div>
-        </template>
+        <!-- ── Tab nav ────────────────────────────────────────────────────── -->
+        <div class="tab-nav">
+          <button
+            v-for="t in tabs" :key="t.key"
+            class="tab-btn" :class="{ active: activeTab === t.key }"
+            @click="activeTab = t.key"
+          >{{ t.label }}</button>
+        </div>
 
-        <!-- ─── Loading ───────────────────────────────────────────────────── -->
+        <!-- ── Loading ────────────────────────────────────────────────────── -->
         <div v-if="loading" class="dash-loading">
-          <div class="spinner"></div>
-          <p class="loading-text">Loading dashboard…</p>
+          <div class="spin-ring"></div>
+          <p class="loading-label">Loading data…</p>
         </div>
 
         <template v-else>
 
-          <!-- ══════════════ OVERVIEW TAB ══════════════════════════════════ -->
-          <div v-if="activeTab === 'overview'" class="tab-content">
+          <!-- ══ OVERVIEW ══════════════════════════════════════════════════ -->
+          <div v-if="activeTab === 'overview'" class="content">
 
-            <!-- Today spotlight -->
-            <div class="spotlight-row">
-              <div class="spotlight-card spotlight-blue">
-                <p class="spotlight-label">Today's Orders</p>
-                <p class="spotlight-value">{{ kpis.today_orders ?? 0 }}</p>
-                <p class="spotlight-sub">vs {{ kpis.week_orders ?? 0 }} this week</p>
+            <!-- Metric row -->
+            <div class="metric-row">
+              <div class="metric-card">
+                <p class="metric-label">Total Revenue</p>
+                <p class="metric-value">{{ fmtKES(kpis.total_revenue) }}</p>
+                <p class="metric-sub">
+                  <span class="trend-up" v-if="(kpis.today_revenue || 0) > 0">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="12" height="12"><polyline points="18 15 12 9 6 15"/></svg>
+                    {{ fmtKESShort(kpis.today_revenue) }} today
+                  </span>
+                  <span v-else class="metric-sub-dim">{{ fmtKESShort(kpis.week_revenue) }} this week</span>
+                </p>
               </div>
-              <div class="spotlight-card spotlight-green">
-                <p class="spotlight-label">Today's Revenue</p>
-                <p class="spotlight-value">{{ fmtKESShort(kpis.today_revenue) }}</p>
-                <p class="spotlight-sub">{{ fmtKESShort(kpis.week_revenue) }} this week</p>
+              <div class="metric-card">
+                <p class="metric-label">Total Orders</p>
+                <p class="metric-value">{{ kpis.total_orders ?? 0 }}</p>
+                <p class="metric-sub">
+                  <span class="trend-up" v-if="(kpis.today_orders || 0) > 0">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="12" height="12"><polyline points="18 15 12 9 6 15"/></svg>
+                    {{ kpis.today_orders }} today
+                  </span>
+                  <span v-else class="metric-sub-dim">{{ kpis.week_orders ?? 0 }} this week</span>
+                </p>
               </div>
-            </div>
-
-            <!-- Period KPIs -->
-            <p class="section-label">This Period</p>
-            <div class="kpi-grid-4">
-              <div class="kpi-chip">
-                <p class="kpi-chip-val">{{ kpis.total_orders ?? 0 }}</p>
-                <p class="kpi-chip-lbl">Orders</p>
+              <div class="metric-card">
+                <p class="metric-label">Avg Order Value</p>
+                <p class="metric-value">{{ fmtKESShort(kpis.avg_order_value) }}</p>
+                <p class="metric-sub metric-sub-dim">per order</p>
               </div>
-              <div class="kpi-chip">
-                <p class="kpi-chip-val">{{ fmtKESShort(kpis.total_revenue) }}</p>
-                <p class="kpi-chip-lbl">Revenue</p>
-              </div>
-              <div class="kpi-chip">
-                <p class="kpi-chip-val">{{ fmtKESShort(kpis.avg_order_value) }}</p>
-                <p class="kpi-chip-lbl">Avg Order</p>
-              </div>
-              <div class="kpi-chip kpi-chip-amber">
-                <p class="kpi-chip-val">{{ fmtKESShort(kpis.outstanding) }}</p>
-                <p class="kpi-chip-lbl">Outstanding</p>
+              <div class="metric-card metric-card-warn">
+                <p class="metric-label">Outstanding</p>
+                <p class="metric-value">{{ fmtKESShort(kpis.outstanding) }}</p>
+                <p class="metric-sub metric-sub-dim">unpaid invoices</p>
               </div>
             </div>
 
             <!-- Activity row -->
-            <div class="kpi-grid-3">
-              <div class="kpi-chip">
-                <p class="kpi-chip-val">{{ kpis.total_visits ?? 0 }}</p>
-                <p class="kpi-chip-lbl">Visits</p>
+            <div class="activity-row">
+              <div class="stat-tile">
+                <p class="stat-tile-val">{{ kpis.total_visits ?? 0 }}</p>
+                <p class="stat-tile-lbl">Visits</p>
               </div>
-              <div class="kpi-chip">
-                <p class="kpi-chip-val">{{ kpis.visit_conversion ?? 0 }}%</p>
-                <p class="kpi-chip-lbl">Conversion</p>
+              <div class="stat-tile">
+                <p class="stat-tile-val">{{ kpis.visits_with_order ?? 0 }}</p>
+                <p class="stat-tile-lbl">Orders from visits</p>
               </div>
-              <div class="kpi-chip" :class="(kpis.attendance_rate ?? 0) < 80 ? 'kpi-chip-red' : 'kpi-chip-green'">
-                <p class="kpi-chip-val">{{ kpis.attendance_rate ?? 0 }}%</p>
-                <p class="kpi-chip-lbl">Attendance</p>
+              <div class="stat-tile">
+                <p class="stat-tile-val" :class="(kpis.visit_conversion || 0) >= 50 ? 'val-green' : 'val-amber'">{{ kpis.visit_conversion ?? 0 }}%</p>
+                <p class="stat-tile-lbl">Conversion rate</p>
+              </div>
+              <div class="stat-tile">
+                <p class="stat-tile-val" :class="(kpis.attendance_rate || 0) >= 80 ? 'val-green' : 'val-red'">{{ kpis.attendance_rate ?? 0 }}%</p>
+                <p class="stat-tile-lbl">Attendance</p>
               </div>
             </div>
 
-            <!-- Revenue sparkline -->
+            <!-- Revenue chart -->
             <div class="chart-card">
-              <div class="chart-card-head">
-                <p class="chart-card-title">Revenue Trend</p>
-                <span class="chart-badge">{{ trend.length }}d</span>
+              <div class="chart-head">
+                <div>
+                  <p class="chart-title">Revenue Trend</p>
+                  <p class="chart-subtitle">Daily revenue for the selected period</p>
+                </div>
               </div>
               <SvgLineChart :data="revenueChartData" color="#6366f1" :formatValue="fmtKESShort" />
+            </div>
+
+            <!-- Orders chart -->
+            <div class="chart-card">
+              <div class="chart-head">
+                <div>
+                  <p class="chart-title">Orders per Day</p>
+                  <p class="chart-subtitle">Number of orders placed each day</p>
+                </div>
+              </div>
+              <SvgLineChart :data="ordersChartData" color="#0ea5e9" />
             </div>
 
           </div>
 
-          <!-- ══════════════ SALES TAB ══════════════════════════════════════ -->
-          <div v-if="activeTab === 'sales'" class="tab-content">
+          <!-- ══ SALES ══════════════════════════════════════════════════════ -->
+          <div v-if="activeTab === 'sales'" class="content">
 
-            <div class="chart-card">
-              <div class="chart-card-head">
-                <p class="chart-card-title">Daily Orders</p>
-                <button class="dl-btn" @click="exportOrders">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                  Excel
-                </button>
+            <div class="two-col">
+              <div class="chart-card">
+                <div class="chart-head">
+                  <p class="chart-title">Daily Revenue</p>
+                </div>
+                <SvgLineChart :data="revenueChartData" color="#6366f1" :formatValue="fmtKESShort" />
               </div>
-              <SvgLineChart :data="ordersChartData" color="#8b5cf6" />
-            </div>
-
-            <div class="chart-card">
-              <div class="chart-card-head">
-                <p class="chart-card-title">Daily Revenue</p>
+              <div class="chart-card">
+                <div class="chart-head">
+                  <p class="chart-title">Daily Orders</p>
+                </div>
+                <SvgLineChart :data="ordersChartData" color="#0ea5e9" />
               </div>
-              <SvgLineChart :data="revenueChartData" color="#6366f1" :formatValue="fmtKESShort" />
             </div>
 
             <!-- Orders table -->
             <div class="chart-card">
-              <div class="chart-card-head">
-                <p class="chart-card-title">Orders Summary</p>
+              <div class="chart-head">
+                <div>
+                  <p class="chart-title">Orders by Day</p>
+                  <p class="chart-subtitle">Only days with at least one order shown</p>
+                </div>
                 <button class="dl-btn" @click="exportOrders">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                  Excel
+                  Export Excel
                 </button>
               </div>
-              <div class="data-table-wrap">
+              <div class="table-wrap">
                 <table class="data-table">
-                  <thead>
-                    <tr><th>Date</th><th>Orders</th><th>Revenue</th></tr>
-                  </thead>
+                  <thead><tr><th>Date</th><th>Orders</th><th>Revenue (KES)</th></tr></thead>
                   <tbody>
                     <tr v-for="row in trendTable" :key="row.date">
                       <td>{{ row.date }}</td>
-                      <td>{{ row.orders }}</td>
-                      <td>{{ fmtKES(row.revenue) }}</td>
+                      <td><span class="badge-num">{{ row.orders }}</span></td>
+                      <td class="td-right">{{ fmtKES(row.revenue) }}</td>
                     </tr>
-                    <tr v-if="!trendTable.length"><td colspan="3" class="empty-cell">No orders in period</td></tr>
+                    <tr v-if="!trendTable.length">
+                      <td colspan="3" class="empty-td">No orders in this period</td>
+                    </tr>
                   </tbody>
+                  <tfoot v-if="trendTable.length">
+                    <tr>
+                      <td class="tf-label">Total</td>
+                      <td><span class="badge-num badge-num-primary">{{ kpis.total_orders }}</span></td>
+                      <td class="td-right tf-val">{{ fmtKES(kpis.total_revenue) }}</td>
+                    </tr>
+                  </tfoot>
                 </table>
               </div>
             </div>
 
           </div>
 
-          <!-- ══════════════ COLLECTIONS TAB ════════════════════════════════ -->
-          <div v-if="activeTab === 'collections'" class="tab-content">
+          <!-- ══ COLLECTIONS ══════════════════════════════════════════════════ -->
+          <div v-if="activeTab === 'collections'" class="content">
 
-            <!-- Aging summary cards -->
-            <div class="aging-cards">
-              <div
-                v-for="(a, i) in aging"
-                :key="a.bucket"
-                class="aging-card"
-                :class="['aging-card-0','aging-card-1','aging-card-2','aging-card-3'][i]"
-              >
-                <p class="aging-bucket">{{ a.bucket }}</p>
-                <p class="aging-val">{{ fmtKESShort(a.amount) }}</p>
-                <p class="aging-count">{{ a.count }} invoice{{ a.count !== 1 ? 's' : '' }}</p>
+            <!-- Outstanding hero -->
+            <div class="hero-card">
+              <div class="hero-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="24" height="24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
+              </div>
+              <div>
+                <p class="hero-label">Total Outstanding</p>
+                <p class="hero-value">{{ fmtKES(kpis.outstanding) }}</p>
+                <p class="hero-sub">Across all unpaid invoices</p>
               </div>
             </div>
 
-            <!-- Aging bar chart + download -->
+            <!-- Aging cards -->
+            <div class="aging-grid">
+              <div v-for="(a, i) in aging" :key="a.bucket" class="aging-tile" :class="`aging-tile-${i}`">
+                <p class="aging-bucket">{{ a.bucket }}</p>
+                <p class="aging-amount">{{ fmtKESShort(a.amount) }}</p>
+                <p class="aging-count">{{ a.count }} invoice{{ a.count !== 1 ? 's' : '' }}</p>
+                <div class="aging-bar-bg">
+                  <div
+                    class="aging-bar-fill"
+                    :style="{ width: totalAging > 0 ? `${(a.amount / totalAging) * 100}%` : '0%' }"
+                    :class="`aging-fill-${i}`"
+                  ></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Aging bar chart -->
             <div class="chart-card" v-if="aging.length">
-              <div class="chart-card-head">
-                <p class="chart-card-title">Aging Breakdown</p>
+              <div class="chart-head">
+                <div>
+                  <p class="chart-title">Aging Distribution</p>
+                  <p class="chart-subtitle">Outstanding amounts by age bucket</p>
+                </div>
                 <button class="dl-btn" @click="exportAging">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                  Excel
+                  Export Excel
                 </button>
               </div>
               <SvgBarChart
                 :data="agingData"
-                :colors="['#22c55e','#f59e0b','#f97316','#ef4444']"
+                :colors="['#10b981','#f59e0b','#f97316','#ef4444']"
                 :formatValue="fmtKESShort"
               />
             </div>
 
-            <!-- Outstanding total -->
-            <div class="stat-banner">
-              <div class="stat-banner-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="22" height="22">
-                  <rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>
-                </svg>
-              </div>
-              <div>
-                <p class="stat-banner-val">{{ fmtKES(kpis.outstanding) }}</p>
-                <p class="stat-banner-lbl">Total Outstanding</p>
-              </div>
-            </div>
-
-            <!-- Aging detail table -->
+            <!-- Aging table -->
             <div class="chart-card">
-              <div class="chart-card-head">
-                <p class="chart-card-title">Detail</p>
+              <div class="chart-head">
+                <p class="chart-title">Aging Detail</p>
                 <button class="dl-btn" @click="exportAging">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                  Excel
+                  Export Excel
                 </button>
               </div>
-              <div class="data-table-wrap">
+              <div class="table-wrap">
                 <table class="data-table">
-                  <thead><tr><th>Bucket</th><th>Invoices</th><th>Amount (KES)</th></tr></thead>
+                  <thead><tr><th>Age Bucket</th><th>Invoices</th><th>Amount (KES)</th><th>% of Total</th></tr></thead>
                   <tbody>
-                    <tr v-for="a in aging" :key="a.bucket">
-                      <td>{{ a.bucket }}</td>
+                    <tr v-for="(a, i) in aging" :key="a.bucket">
+                      <td><span class="age-dot" :class="`age-dot-${i}`"></span>{{ a.bucket }}</td>
                       <td>{{ a.count }}</td>
-                      <td>{{ fmtKES(a.amount) }}</td>
+                      <td class="td-right">{{ fmtKES(a.amount) }}</td>
+                      <td class="td-right">{{ totalAging > 0 ? ((a.amount / totalAging) * 100).toFixed(1) : 0 }}%</td>
                     </tr>
-                    <tr v-if="!aging.length"><td colspan="3" class="empty-cell">No outstanding invoices</td></tr>
+                    <tr v-if="!aging.length"><td colspan="4" class="empty-td">No outstanding invoices</td></tr>
                   </tbody>
+                  <tfoot v-if="aging.length">
+                    <tr>
+                      <td class="tf-label">Total</td>
+                      <td>{{ aging.reduce((s, a) => s + a.count, 0) }}</td>
+                      <td class="td-right tf-val">{{ fmtKES(totalAging) }}</td>
+                      <td class="td-right">100%</td>
+                    </tr>
+                  </tfoot>
                 </table>
               </div>
             </div>
 
           </div>
 
-          <!-- ══════════════ TEAM TAB ════════════════════════════════════════ -->
-          <div v-if="activeTab === 'team'" class="tab-content">
+          <!-- ══ TEAM ══════════════════════════════════════════════════════ -->
+          <div v-if="activeTab === 'team'" class="content">
 
+            <!-- Leaderboard chart -->
             <div class="chart-card" v-if="leaderboard.length">
-              <div class="chart-card-head">
-                <p class="chart-card-title">Top Sales Reps — Revenue</p>
+              <div class="chart-head">
+                <div>
+                  <p class="chart-title">Revenue by Rep</p>
+                  <p class="chart-subtitle">Top performers in the selected period</p>
+                </div>
                 <button class="dl-btn" @click="exportLeaderboard">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                  Excel
+                  Export Excel
                 </button>
               </div>
               <SvgBarChart
@@ -288,44 +328,44 @@
               />
             </div>
 
-            <!-- Leaderboard table -->
+            <!-- Rep table -->
             <div class="chart-card">
-              <div class="chart-card-head">
-                <p class="chart-card-title">Rep Breakdown</p>
+              <div class="chart-head">
+                <p class="chart-title">Rep Performance</p>
                 <button class="dl-btn" @click="exportLeaderboard">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                  Excel
+                  Export Excel
                 </button>
               </div>
-              <div class="data-table-wrap">
+              <div class="table-wrap">
                 <table class="data-table">
-                  <thead><tr><th>#</th><th>Sales Rep</th><th>Orders</th><th>Revenue</th></tr></thead>
+                  <thead><tr><th>Rank</th><th>Sales Rep</th><th>Orders</th><th>Revenue</th></tr></thead>
                   <tbody>
                     <tr v-for="(r, i) in leaderboard" :key="r.user">
                       <td>
-                        <span class="rank-badge" :class="i === 0 ? 'rank-gold' : i === 1 ? 'rank-silver' : i === 2 ? 'rank-bronze' : ''">
-                          {{ i + 1 }}
-                        </span>
+                        <span class="rank-pill" :class="i === 0 ? 'rank-1' : i === 1 ? 'rank-2' : i === 2 ? 'rank-3' : 'rank-n'">{{ i + 1 }}</span>
                       </td>
-                      <td class="rep-cell">
-                        <span class="rep-avatar">{{ initials(r.name) }}</span>
-                        {{ r.name }}
+                      <td>
+                        <div class="rep-row">
+                          <span class="rep-avatar">{{ initials(r.name) }}</span>
+                          <span class="rep-name">{{ r.name }}</span>
+                        </div>
                       </td>
                       <td>{{ r.order_count }}</td>
-                      <td>{{ fmtKES(r.revenue) }}</td>
+                      <td class="td-right">{{ fmtKES(r.revenue) }}</td>
                     </tr>
-                    <tr v-if="!leaderboard.length"><td colspan="4" class="empty-cell">No data for this period</td></tr>
+                    <tr v-if="!leaderboard.length"><td colspan="4" class="empty-td">No data for this period</td></tr>
                   </tbody>
                 </table>
               </div>
             </div>
 
-            <!-- Activity alerts -->
+            <!-- Inactive alerts -->
             <div class="chart-card" v-if="activityAlerts.length">
-              <p class="chart-card-title" style="margin-bottom:10px">Inactive Reps</p>
+              <p class="chart-title" style="margin-bottom:12px">Inactive Reps</p>
               <div class="alert-list">
-                <div v-for="a in activityAlerts" :key="a.user" class="alert-row">
-                  <span class="alert-dot alert-warning-dot"></span>
+                <div v-for="a in activityAlerts" :key="a.user" class="alert-row-item">
+                  <span class="dot-warn"></span>
                   {{ a.message }}
                 </div>
               </div>
@@ -333,64 +373,67 @@
 
           </div>
 
-          <!-- ══════════════ VISITS TAB ══════════════════════════════════════ -->
-          <div v-if="activeTab === 'visits'" class="tab-content">
+          <!-- ══ VISITS ══════════════════════════════════════════════════════ -->
+          <div v-if="activeTab === 'visits'" class="content">
 
-            <!-- Visit stats row -->
-            <div class="kpi-grid-3">
-              <div class="kpi-chip">
-                <p class="kpi-chip-val">{{ kpis.total_visits ?? 0 }}</p>
-                <p class="kpi-chip-lbl">Total Visits</p>
+            <div class="stat-row">
+              <div class="stat-card">
+                <p class="stat-val">{{ kpis.total_visits ?? 0 }}</p>
+                <p class="stat-lbl">Total Visits</p>
               </div>
-              <div class="kpi-chip">
-                <p class="kpi-chip-val">{{ kpis.visits_with_order ?? 0 }}</p>
-                <p class="kpi-chip-lbl">With Orders</p>
+              <div class="stat-card">
+                <p class="stat-val">{{ kpis.visits_with_order ?? 0 }}</p>
+                <p class="stat-lbl">With Orders</p>
               </div>
-              <div class="kpi-chip">
-                <p class="kpi-chip-val">{{ kpis.visit_conversion ?? 0 }}%</p>
-                <p class="kpi-chip-lbl">Conversion</p>
+              <div class="stat-card">
+                <p class="stat-val" :class="(kpis.visit_conversion || 0) >= 50 ? 'val-green' : 'val-amber'">{{ kpis.visit_conversion ?? 0 }}%</p>
+                <p class="stat-lbl">Conversion</p>
               </div>
             </div>
 
             <!-- Map -->
-            <div class="chart-card map-card" v-if="visitPins.length">
-              <div class="chart-card-head">
-                <p class="chart-card-title">Visit Locations</p>
-                <span class="chart-badge">{{ visitPins.length }} pins</span>
+            <div class="chart-card" v-if="visitPins.length">
+              <div class="chart-head">
+                <div>
+                  <p class="chart-title">Visit Locations</p>
+                  <p class="chart-subtitle">{{ visitPins.length }} visits in the selected period</p>
+                </div>
               </div>
               <div id="dash-map" class="dash-map"></div>
               <div class="map-legend">
-                <span class="legend-dot legend-blue"></span><span>Order placed</span>
-                <span class="legend-dot legend-gray" style="margin-left:12px"></span><span>Visit only</span>
+                <span class="leg-dot leg-blue"></span><span>Order placed</span>
+                <span class="leg-dot leg-gray"></span><span>Visit only</span>
               </div>
             </div>
-            <div class="chart-card empty-state" v-else>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="36" height="36" style="color:#cbd5e1">
+            <div class="chart-card empty-card" v-else>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="40" height="40" style="color:#d1d5db">
                 <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
               </svg>
-              <p>No visit data for this period</p>
+              <p>No visit location data for this period</p>
             </div>
 
             <!-- Reminders -->
             <div class="chart-card" v-if="overdue.length || upcoming.length">
-              <div class="chart-card-head">
-                <p class="chart-card-title">Reminders</p>
-                <span v-if="unreadCount" class="badge-red">{{ unreadCount }}</span>
+              <div class="chart-head">
+                <div>
+                  <p class="chart-title">Reminders</p>
+                </div>
+                <span v-if="unreadCount" class="badge-red">{{ unreadCount }} overdue</span>
               </div>
               <div class="reminder-list">
                 <div
                   v-for="r in [...overdue, ...upcoming].slice(0, 6)"
                   :key="r.id"
-                  class="reminder-item"
-                  :class="{ 'reminder-overdue': overdue.find(o => o.id === r.id) }"
+                  class="reminder-row"
+                  :class="{ overdue: overdue.find(o => o.id === r.id) }"
                 >
-                  <div class="reminder-dot" :class="overdue.find(o => o.id === r.id) ? 'dot-red' : 'dot-blue'"></div>
-                  <div class="reminder-info">
-                    <p class="reminder-customer">{{ r.customerName }}</p>
-                    <p class="reminder-date">{{ fmtDatetime(r.date) }}</p>
-                    <p class="reminder-note" v-if="r.note">{{ r.note }}</p>
+                  <div class="reminder-dot" :class="overdue.find(o => o.id === r.id) ? 'rdot-red' : 'rdot-indigo'"></div>
+                  <div class="reminder-body">
+                    <p class="r-name">{{ r.customerName }}</p>
+                    <p class="r-time">{{ fmtDatetime(r.date) }}</p>
+                    <p class="r-note" v-if="r.note">{{ r.note }}</p>
                   </div>
-                  <button class="reminder-dismiss" @click="markRead(r.id)">✕</button>
+                  <button class="dismiss-btn" @click="markRead(r.id)">✕</button>
                 </div>
               </div>
             </div>
@@ -443,79 +486,53 @@ const formatDateRange = computed(() => {
   return `${f.toLocaleDateString('en-KE', { day: 'numeric', month: 'short' })} – ${t.toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: 'numeric' })}`
 })
 
-const revenueChartData = computed(() =>
-  trend.value.map(d => ({ label: shortDate(d.date), value: d.revenue }))
-)
-const ordersChartData = computed(() =>
-  trend.value.map(d => ({ label: shortDate(d.date), value: d.orders }))
-)
-const leaderboardData = computed(() =>
-  leaderboard.value.slice(0, 8).map(r => ({ label: firstName(r.name), value: r.revenue }))
-)
-const agingData = computed(() =>
-  aging.value.map(a => ({ label: a.bucket.replace(' days', 'd'), value: a.amount }))
-)
-const trendTable = computed(() =>
-  trend.value.filter(d => d.orders > 0).reverse()
-)
-const activityAlerts = computed(() =>
-  alerts.value.filter(a => a.type === 'low_activity')
-)
+const revenueChartData = computed(() => trend.value.map(d => ({ label: shortDate(d.date), value: d.revenue })))
+const ordersChartData = computed(() => trend.value.map(d => ({ label: shortDate(d.date), value: d.orders })))
+const leaderboardData = computed(() => leaderboard.value.slice(0, 8).map(r => ({ label: firstName(r.name), value: r.revenue })))
+const agingData = computed(() => aging.value.map(a => ({ label: a.bucket.replace(' days', 'd'), value: a.amount })))
+const trendTable = computed(() => trend.value.filter(d => d.orders > 0).reverse())
+const activityAlerts = computed(() => alerts.value.filter(a => a.type === 'low_activity'))
+const totalAging = computed(() => aging.value.reduce((s, a) => s + a.amount, 0))
 
 // ── Excel exports ────────────────────────────────────────────────────────────
 function downloadExcel(sheets, filename) {
   const wb = XLSX.utils.book_new()
   sheets.forEach(({ name, rows }) => {
     const ws = XLSX.utils.aoa_to_sheet(rows)
-    // Auto-width columns
-    const colWidths = rows[0].map((_, ci) =>
-      Math.max(...rows.map(r => String(r[ci] ?? '').length)) + 2
+    ws['!cols'] = rows[0].map((_, ci) =>
+      ({ wch: Math.min(Math.max(...rows.map(r => String(r[ci] ?? '').length)) + 2, 40) })
     )
-    ws['!cols'] = colWidths.map(w => ({ wch: Math.min(w, 40) }))
     XLSX.utils.book_append_sheet(wb, ws, name)
   })
   XLSX.writeFile(wb, filename)
 }
 
 function exportOrders() {
-  const rows = [['Date', 'Orders', 'Revenue (KES)']]
-  trend.value.forEach(d => rows.push([d.date, d.orders, d.revenue]))
-  downloadExcel([{ name: 'Orders Trend', rows }], `orders-trend-${filters.value.fromDate}-to-${filters.value.toDate}.xlsx`)
+  const rows = [['Date', 'Orders', 'Revenue (KES)'], ...trend.value.map(d => [d.date, d.orders, d.revenue])]
+  downloadExcel([{ name: 'Orders Trend', rows }], `orders-${filters.value.fromDate}-${filters.value.toDate}.xlsx`)
 }
-
 function exportAging() {
-  const rows = [['Bucket', 'Invoices', 'Amount (KES)']]
-  aging.value.forEach(a => rows.push([a.bucket, a.count, a.amount]))
-  downloadExcel([{ name: 'Aging', rows }], `aging-report-${filters.value.toDate}.xlsx`)
+  const rows = [['Bucket', 'Invoices', 'Amount (KES)', '% of Total'],
+    ...aging.value.map(a => [a.bucket, a.count, a.amount, totalAging.value > 0 ? ((a.amount / totalAging.value) * 100).toFixed(1) + '%' : '0%'])]
+  downloadExcel([{ name: 'Aging', rows }], `aging-${filters.value.toDate}.xlsx`)
 }
-
 function exportLeaderboard() {
-  const rows = [['Rank', 'Sales Rep', 'Orders', 'Revenue (KES)']]
-  leaderboard.value.forEach((r, i) => rows.push([i + 1, r.name, r.order_count, r.revenue]))
-  downloadExcel([{ name: 'Leaderboard', rows }], `leaderboard-${filters.value.fromDate}-to-${filters.value.toDate}.xlsx`)
+  const rows = [['Rank', 'Sales Rep', 'Orders', 'Revenue (KES)'],
+    ...leaderboard.value.map((r, i) => [i + 1, r.name, r.order_count, r.revenue])]
+  downloadExcel([{ name: 'Leaderboard', rows }], `leaderboard-${filters.value.fromDate}-${filters.value.toDate}.xlsx`)
 }
-
 function exportAll() {
-  const ordersRows = [['Date', 'Orders', 'Revenue (KES)'], ...trend.value.map(d => [d.date, d.orders, d.revenue])]
-  const agingRows = [['Bucket', 'Invoices', 'Amount (KES)'], ...aging.value.map(a => [a.bucket, a.count, a.amount])]
-  const lbRows = [['Rank', 'Sales Rep', 'Orders', 'Revenue (KES)'], ...leaderboard.value.map((r, i) => [i + 1, r.name, r.order_count, r.revenue])]
   downloadExcel([
-    { name: 'Orders Trend', rows: ordersRows },
-    { name: 'Aging', rows: agingRows },
-    { name: 'Leaderboard', rows: lbRows },
-  ], `analytics-report-${filters.value.fromDate}-to-${filters.value.toDate}.xlsx`)
+    { name: 'Orders Trend', rows: [['Date', 'Orders', 'Revenue (KES)'], ...trend.value.map(d => [d.date, d.orders, d.revenue])] },
+    { name: 'Aging', rows: [['Bucket', 'Invoices', 'Amount (KES)'], ...aging.value.map(a => [a.bucket, a.count, a.amount])] },
+    { name: 'Leaderboard', rows: [['Rank', 'Sales Rep', 'Orders', 'Revenue (KES)'], ...leaderboard.value.map((r, i) => [i + 1, r.name, r.order_count, r.revenue])] },
+  ], `analytics-${filters.value.fromDate}-${filters.value.toDate}.xlsx`)
 }
 
-// ── Helpers ─────────────────────────────────────────────────────────────────
-function shortDate(iso) {
-  const d = new Date(iso)
-  return `${d.getDate()}/${d.getMonth() + 1}`
-}
+// ── Helpers ──────────────────────────────────────────────────────────────────
+function shortDate(iso) { const d = new Date(iso); return `${d.getDate()}/${d.getMonth() + 1}` }
 function firstName(name) { return name ? name.split(' ')[0] : '?' }
-function initials(name) {
-  if (!name) return '?'
-  return name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()
-}
+function initials(name) { return name ? name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase() : '?' }
 function fmtKES(n) {
   if (!n && n !== 0) return '—'
   return new Intl.NumberFormat('en-KE', { style: 'currency', currency: 'KES', minimumFractionDigits: 0 }).format(n)
@@ -531,23 +548,16 @@ function fmtDatetime(iso) {
   return new Date(iso).toLocaleString('en-KE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
 }
 
-// ── Data loading ─────────────────────────────────────────────────────────────
+// ── API ───────────────────────────────────────────────────────────────────────
 async function apiFetch(path) {
   const res = await fetch(path, { credentials: 'include' })
   if (!res.ok) throw new Error(`${res.status}`)
   const json = await res.json()
   return json.message !== undefined ? json.message : json
 }
-
 function buildQuery(extra = {}) {
-  return new URLSearchParams({
-    from_date: filters.value.fromDate,
-    to_date: filters.value.toDate,
-    ...(filters.value.salesPerson ? { sales_person: filters.value.salesPerson } : {}),
-    ...extra,
-  }).toString()
+  return new URLSearchParams({ from_date: filters.value.fromDate, to_date: filters.value.toDate, ...(filters.value.salesPerson ? { sales_person: filters.value.salesPerson } : {}), ...extra }).toString()
 }
-
 async function loadAll() {
   loading.value = true
   try {
@@ -560,53 +570,32 @@ async function loadAll() {
       apiFetch(`/api/method/live.api.dashboard.get_alerts`),
       apiFetch(`/api/method/live.api.dashboard.get_visit_map?${buildQuery()}`),
     ])
-
     if (kpiRes.status === 'fulfilled') kpis.value = kpiRes.value || {}
     if (trendRes.status === 'fulfilled') trend.value = trendRes.value || []
     if (lbRes.status === 'fulfilled') leaderboard.value = lbRes.value || []
     if (agingRes.status === 'fulfilled') aging.value = agingRes.value || []
     if (alertRes.status === 'fulfilled') alerts.value = alertRes.value || []
     if (mapRes.status === 'fulfilled') visitPins.value = mapRes.value || []
-
     if (kpis.value.is_manager) {
-      const members = await apiFetch('/api/method/live.api.dashboard.get_team_members').catch(() => [])
-      teamMembers.value = members || []
+      teamMembers.value = await apiFetch('/api/method/live.api.dashboard.get_team_members').catch(() => []) || []
     }
-
-    if (visitPins.value.length) {
-      await nextTick()
-      initMap()
-    }
+    if (visitPins.value.length) { await nextTick(); initMap() }
   } catch (e) {
     console.error('Dashboard load error:', e)
   } finally {
     loading.value = false
   }
 }
-
-function applyFilters() {
-  filterOpen.value = false
-  loadAll()
-}
-
-function resetFilters() {
-  filters.value = { fromDate: thirtyAgo, toDate: today, salesPerson: '' }
-  filterOpen.value = false
-  loadAll()
-}
-
+function applyFilters() { filterOpen.value = false; loadAll() }
+function resetFilters() { filters.value = { fromDate: thirtyAgo, toDate: today, salesPerson: '' }; filterOpen.value = false; loadAll() }
 function initMap() {
-  const L = window.L
-  if (!L) return
-  const el = document.getElementById('dash-map')
-  if (!el || leafletMap) return
-  const pins = visitPins.value.filter(p => p.latitude && p.longitude)
-  if (!pins.length) return
-  const center = [pins[0].latitude, pins[0].longitude]
-  leafletMap = L.map(el, { zoomControl: false }).setView(center, 11)
+  const L = window.L; if (!L) return
+  const el = document.getElementById('dash-map'); if (!el || leafletMap) return
+  const pins = visitPins.value.filter(p => p.latitude && p.longitude); if (!pins.length) return
+  leafletMap = L.map(el, { zoomControl: false }).setView([pins[0].latitude, pins[0].longitude], 11)
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OSM', maxZoom: 18 }).addTo(leafletMap)
-  const mkBlue = L.divIcon({ className: '', html: '<div style="width:10px;height:10px;background:#4f46e5;border-radius:50%;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.35)"></div>' })
-  const mkGray = L.divIcon({ className: '', html: '<div style="width:8px;height:8px;background:#94a3b8;border-radius:50%;border:2px solid #fff"></div>' })
+  const mkBlue = L.divIcon({ className: '', html: '<div style="width:11px;height:11px;background:#6366f1;border-radius:50%;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.3)"></div>' })
+  const mkGray = L.divIcon({ className: '', html: '<div style="width:8px;height:8px;background:#9ca3af;border-radius:50%;border:2px solid #fff"></div>' })
   for (const p of pins) {
     L.marker([p.latitude, p.longitude], { icon: p.sales_order ? mkBlue : mkGray })
       .bindPopup(`<b>${p.customer_name}</b><br>${p.user_name}<br>${p.sales_order ? '✓ Order placed' : 'Visit only'}`)
@@ -614,316 +603,325 @@ function initMap() {
   }
   leafletMap.fitBounds(L.latLngBounds(pins.map(p => [p.latitude, p.longitude])), { padding: [20, 20] })
 }
-
 onMounted(loadAll)
 </script>
 
 <style scoped>
-/* ── Root ─────────────────────────────────────────────────────────────────── */
+/* ── Base ─────────────────────────────────────────────────────────────────── */
 .dash-root {
-  background: #f1f5f9;
+  background: #f5f6fa;
   min-height: 100%;
-  padding-bottom: 90px;
+  padding-bottom: 80px;
+  font-family: system-ui, -apple-system, sans-serif;
 }
 
-/* ── Header ───────────────────────────────────────────────────────────────── */
-.dash-header {
-  background: linear-gradient(135deg, #1e3a8a 0%, #4338ca 100%);
-  position: sticky;
-  top: 0;
-  z-index: 20;
-  padding: 16px 16px 0;
-}
-.dash-header-top {
+/* ── Top bar ──────────────────────────────────────────────────────────────── */
+.topbar {
+  background: #fff;
+  border-bottom: 1px solid #e5e7eb;
+  padding: 12px 16px;
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 14px;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 30;
 }
-.back-btn {
-  width: 34px; height: 34px;
-  background: rgba(255,255,255,0.15);
-  border: none; border-radius: 10px;
-  display: flex; align-items: center; justify-content: center;
-  cursor: pointer; color: #fff; flex-shrink: 0;
-}
-.dash-title-group { flex: 1; }
-.dash-title { font-size: 1.15rem; font-weight: 800; color: #fff; margin: 0 0 1px; }
-.dash-sub { font-size: 0.72rem; color: rgba(255,255,255,0.65); margin: 0; }
-.filter-btn {
-  display: flex; align-items: center; gap: 5px;
-  background: rgba(255,255,255,0.18); border: none; border-radius: 10px;
-  padding: 8px 12px; font-size: 0.78rem; font-weight: 600;
-  color: #fff; cursor: pointer; flex-shrink: 0;
-}
-.export-all-btn {
-  display: flex; align-items: center; justify-content: center;
-  background: rgba(255,255,255,0.18); border: none; border-radius: 10px;
-  width: 34px; height: 34px; color: #fff; cursor: pointer; flex-shrink: 0;
-}
-
-/* ── Tab bar ──────────────────────────────────────────────────────────────── */
-.tab-row {
-  display: flex;
-  gap: 2px;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-  padding-bottom: 0;
-}
-.tab-row::-webkit-scrollbar { display: none; }
-.tab-btn {
+.topbar-left { display: flex; align-items: center; gap: 10px; }
+.topbar-right { display: flex; align-items: center; gap: 8px; }
+.topbar-title { font-size: 1rem; font-weight: 700; color: #111827; margin: 0 0 1px; }
+.topbar-sub { font-size: 0.7rem; color: #9ca3af; margin: 0; }
+.icon-btn {
+  width: 32px; height: 32px;
+  background: #f9fafb; border: 1px solid #e5e7eb;
+  border-radius: 8px; display: flex; align-items: center;
+  justify-content: center; cursor: pointer; color: #6b7280;
   flex-shrink: 0;
-  padding: 10px 14px;
-  background: transparent; border: none;
-  font-size: 0.8rem; font-weight: 600;
-  color: rgba(255,255,255,0.6);
-  cursor: pointer;
-  border-bottom: 2px solid transparent;
-  transition: color 0.15s, border-color 0.15s;
 }
-.tab-btn.active {
-  color: #fff;
-  border-bottom-color: #fff;
+.ghost-btn {
+  display: flex; align-items: center; gap: 5px;
+  background: #f9fafb; border: 1px solid #e5e7eb;
+  border-radius: 8px; padding: 6px 10px;
+  font-size: 0.75rem; font-weight: 500; color: #374151;
+  cursor: pointer; white-space: nowrap; max-width: 160px;
+  overflow: hidden; text-overflow: ellipsis;
 }
 
-/* ── Filter drawer ────────────────────────────────────────────────────────── */
-.filter-drawer {
+/* ── Filter panel ─────────────────────────────────────────────────────────── */
+.filter-panel {
   background: #fff;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid #e5e7eb;
   padding: 14px 16px;
 }
 .filter-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  margin-bottom: 10px;
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 10px; margin-bottom: 12px;
 }
 .filter-field { display: flex; flex-direction: column; gap: 4px; }
-.filter-label { font-size: 0.72rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.04em; }
-.filter-input {
-  padding: 8px 10px; border: 1.5px solid #e2e8f0;
-  border-radius: 8px; font-size: 0.85rem; color: #1e293b; background: #fff;
+.field-lbl { font-size: 0.7rem; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.04em; }
+.field-input {
+  padding: 8px 10px; border: 1px solid #d1d5db;
+  border-radius: 7px; font-size: 0.83rem; color: #111827;
+  background: #fff; width: 100%; box-sizing: border-box;
 }
+.field-input:focus { outline: none; border-color: #6366f1; box-shadow: 0 0 0 2px rgba(99,102,241,0.12); }
 .filter-actions { display: flex; gap: 8px; }
 .btn-ghost {
-  flex: 1; padding: 10px; background: #f1f5f9;
-  border: none; border-radius: 10px; font-weight: 600;
-  font-size: 0.85rem; color: #64748b; cursor: pointer;
+  flex: 1; padding: 9px; background: #f9fafb;
+  border: 1px solid #e5e7eb; border-radius: 8px;
+  font-size: 0.83rem; font-weight: 600; color: #374151; cursor: pointer;
 }
 .btn-primary {
-  flex: 1; padding: 10px; background: #4f46e5;
-  border: none; border-radius: 10px; font-weight: 700;
-  font-size: 0.85rem; color: #fff; cursor: pointer;
+  flex: 1; padding: 9px; background: #6366f1;
+  border: none; border-radius: 8px;
+  font-size: 0.83rem; font-weight: 700; color: #fff; cursor: pointer;
 }
 
-/* ── Alert banners ────────────────────────────────────────────────────────── */
-.alert-banner {
-  display: flex; align-items: center; gap: 8px;
-  padding: 10px 16px; font-size: 0.8rem; font-weight: 500;
-  border-bottom: 1px solid transparent;
+/* ── Alert strip ──────────────────────────────────────────────────────────── */
+.alert-strip {
+  padding: 8px 12px;
+  display: flex; flex-direction: column; gap: 6px;
 }
-.alert-warning { background: #fffbeb; border-color: #fde68a; color: #92400e; }
-.alert-danger  { background: #fef2f2; border-color: #fecaca; color: #991b1b; }
-.alert-info    { background: #eff6ff; border-color: #bfdbfe; color: #1e40af; }
-.alert-icon { flex-shrink: 0; }
-.alert-msg { flex: 1; }
-.alert-link { margin-left: auto; font-weight: 700; color: inherit; text-decoration: none; flex-shrink: 0; }
+.alert-pill {
+  display: flex; align-items: center; gap: 6px;
+  padding: 7px 12px; border-radius: 8px;
+  font-size: 0.78rem; font-weight: 500;
+  border: 1px solid transparent;
+}
+.pill-warning { background: #fffbeb; border-color: #fde68a; color: #92400e; }
+.pill-danger  { background: #fef2f2; border-color: #fecaca; color: #991b1b; }
+.pill-info    { background: #eff6ff; border-color: #bfdbfe; color: #1e40af; }
+.pill-link { margin-left: auto; font-weight: 700; color: inherit; text-decoration: none; }
+
+/* ── Tab nav ──────────────────────────────────────────────────────────────── */
+.tab-nav {
+  background: #fff;
+  border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding: 0 12px;
+  position: sticky;
+  top: 57px;
+  z-index: 20;
+}
+.tab-nav::-webkit-scrollbar { display: none; }
+.tab-btn {
+  flex-shrink: 0; padding: 12px 14px;
+  background: transparent; border: none;
+  font-size: 0.83rem; font-weight: 500; color: #6b7280;
+  cursor: pointer; border-bottom: 2px solid transparent;
+  transition: color 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+.tab-btn.active { color: #6366f1; border-bottom-color: #6366f1; font-weight: 700; }
 
 /* ── Loading ──────────────────────────────────────────────────────────────── */
-.dash-loading {
-  display: flex; flex-direction: column;
-  align-items: center; justify-content: center;
-  padding: 60px 20px; gap: 12px;
-}
-.spinner {
-  width: 32px; height: 32px;
-  border: 3px solid #e2e8f0; border-top-color: #4f46e5;
-  border-radius: 50%; animation: spin 0.7s linear infinite;
+.dash-loading { display: flex; flex-direction: column; align-items: center; padding: 64px 20px; gap: 12px; }
+.spin-ring {
+  width: 36px; height: 36px;
+  border: 3px solid #e5e7eb; border-top-color: #6366f1;
+  border-radius: 50%; animation: spin 0.75s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
-.loading-text { font-size: 0.82rem; color: #94a3b8; margin: 0; }
+.loading-label { font-size: 0.83rem; color: #9ca3af; margin: 0; }
 
-/* ── Tab content ──────────────────────────────────────────────────────────── */
-.tab-content { padding: 14px 12px 0; display: flex; flex-direction: column; gap: 12px; }
+/* Slide transition */
+.slide-enter-active, .slide-leave-active { transition: all 0.2s ease; }
+.slide-enter-from, .slide-leave-to { opacity: 0; transform: translateY(-8px); }
 
-/* ── Spotlight cards (Overview today) ────────────────────────────────────── */
-.spotlight-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.spotlight-card {
-  border-radius: 14px; padding: 16px 14px;
-  display: flex; flex-direction: column; gap: 4px;
-}
-.spotlight-blue { background: linear-gradient(135deg, #1e3a8a, #3b5fc4); }
-.spotlight-green { background: linear-gradient(135deg, #065f46, #059669); }
-.spotlight-label { font-size: 0.7rem; font-weight: 600; color: rgba(255,255,255,0.7); margin: 0; text-transform: uppercase; letter-spacing: 0.04em; }
-.spotlight-value { font-size: 1.5rem; font-weight: 800; color: #fff; margin: 0; line-height: 1.2; }
-.spotlight-sub { font-size: 0.7rem; color: rgba(255,255,255,0.6); margin: 0; }
+/* ── Content wrapper ──────────────────────────────────────────────────────── */
+.content { padding: 14px 12px; display: flex; flex-direction: column; gap: 12px; }
 
-/* ── KPI chips ────────────────────────────────────────────────────────────── */
-.section-label {
-  font-size: 0.68rem; font-weight: 700; color: #64748b;
-  text-transform: uppercase; letter-spacing: 0.06em;
-  padding: 0 4px;
+/* ── Metric row ───────────────────────────────────────────────────────────── */
+.metric-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.metric-card {
+  background: #fff; border: 1px solid #e5e7eb;
+  border-radius: 12px; padding: 14px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
 }
-.kpi-grid-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 8px; }
-.kpi-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
-.kpi-chip {
-  background: #fff; border-radius: 12px;
-  padding: 12px 10px; text-align: center;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+.metric-card-warn { border-left: 3px solid #f59e0b; }
+.metric-label { font-size: 0.7rem; font-weight: 600; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.04em; margin: 0 0 6px; }
+.metric-value { font-size: 1.25rem; font-weight: 800; color: #111827; margin: 0 0 5px; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.metric-sub { font-size: 0.72rem; margin: 0; display: flex; align-items: center; gap: 3px; }
+.metric-sub-dim { color: #9ca3af; }
+.trend-up { color: #059669; display: flex; align-items: center; gap: 2px; font-weight: 600; }
+
+/* ── Activity tiles ───────────────────────────────────────────────────────── */
+.activity-row { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 8px; }
+.stat-tile {
+  background: #fff; border: 1px solid #e5e7eb;
+  border-radius: 10px; padding: 10px 8px; text-align: center;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
 }
-.kpi-chip-val {
-  font-size: 0.95rem; font-weight: 800; color: #1e293b;
-  margin: 0 0 3px; line-height: 1.2;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.kpi-chip-lbl { font-size: 0.62rem; color: #94a3b8; margin: 0; text-transform: uppercase; font-weight: 600; }
-.kpi-chip-amber .kpi-chip-val { color: #b45309; }
-.kpi-chip-amber { background: #fffbeb; }
-.kpi-chip-red .kpi-chip-val { color: #b91c1c; }
-.kpi-chip-red { background: #fef2f2; }
-.kpi-chip-green .kpi-chip-val { color: #065f46; }
-.kpi-chip-green { background: #f0fdf4; }
+.stat-tile-val { font-size: 1.05rem; font-weight: 800; color: #111827; margin: 0 0 3px; }
+.stat-tile-lbl { font-size: 0.6rem; color: #9ca3af; font-weight: 600; text-transform: uppercase; margin: 0; }
+.val-green { color: #059669 !important; }
+.val-amber { color: #d97706 !important; }
+.val-red { color: #dc2626 !important; }
 
 /* ── Chart cards ──────────────────────────────────────────────────────────── */
 .chart-card {
-  background: #fff; border-radius: 16px;
-  padding: 14px 16px;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+  background: #fff; border: 1px solid #e5e7eb;
+  border-radius: 12px; padding: 16px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
 }
-.chart-card-head {
-  display: flex; align-items: center;
-  justify-content: space-between;
-  margin-bottom: 12px;
+.chart-head {
+  display: flex; align-items: flex-start;
+  justify-content: space-between; margin-bottom: 14px;
 }
-.chart-card-title {
-  font-size: 0.78rem; font-weight: 700; color: #374151;
-  text-transform: uppercase; letter-spacing: 0.04em; margin: 0;
-}
-.chart-badge {
-  background: #eff6ff; color: #3b82f6;
-  font-size: 0.65rem; font-weight: 700;
-  padding: 2px 8px; border-radius: 9999px;
-}
-.badge-red {
-  background: #ef4444; color: #fff;
-  font-size: 0.65rem; font-weight: 800;
-  padding: 2px 7px; border-radius: 9999px;
-}
+.chart-title { font-size: 0.88rem; font-weight: 700; color: #111827; margin: 0 0 2px; }
+.chart-subtitle { font-size: 0.72rem; color: #9ca3af; margin: 0; }
 .dl-btn {
-  display: flex; align-items: center; gap: 4px;
-  background: #f1f5f9; border: none; border-radius: 8px;
-  padding: 5px 10px; font-size: 0.72rem; font-weight: 600;
-  color: #475569; cursor: pointer;
+  display: flex; align-items: center; gap: 5px; flex-shrink: 0;
+  background: #f9fafb; border: 1px solid #e5e7eb;
+  border-radius: 7px; padding: 6px 10px;
+  font-size: 0.72rem; font-weight: 600; color: #374151; cursor: pointer;
 }
-.dl-btn:active { background: #e2e8f0; }
+.dl-btn:active { background: #f3f4f6; }
 
-/* ── Data tables ──────────────────────────────────────────────────────────── */
-.data-table-wrap { overflow-x: auto; border-radius: 10px; }
-.data-table {
-  width: 100%; border-collapse: collapse; font-size: 0.8rem;
-}
+/* ── Two column layout ────────────────────────────────────────────────────── */
+.two-col { display: flex; flex-direction: column; gap: 12px; }
+
+/* ── Tables ───────────────────────────────────────────────────────────────── */
+.table-wrap { overflow-x: auto; margin: 0 -2px; }
+.data-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
 .data-table th {
-  background: #f8fafc; color: #64748b;
+  background: #f9fafb; color: #6b7280;
   font-size: 0.68rem; font-weight: 700;
   text-transform: uppercase; letter-spacing: 0.04em;
-  padding: 8px 10px; text-align: left;
-  border-bottom: 1px solid #f1f5f9;
+  padding: 9px 12px; text-align: left;
+  border-bottom: 1px solid #e5e7eb; white-space: nowrap;
 }
 .data-table td {
-  padding: 9px 10px; color: #1e293b;
-  border-bottom: 1px solid #f8fafc;
+  padding: 10px 12px; color: #111827;
+  border-bottom: 1px solid #f3f4f6;
 }
 .data-table tr:last-child td { border-bottom: none; }
-.data-table tr:hover td { background: #f8fafc; }
-.empty-cell { text-align: center; color: #94a3b8; padding: 20px; }
-
-/* ── Aging cards ─────────────────────────────────────────────────────────── */
-.aging-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.aging-card {
-  border-radius: 14px; padding: 14px 12px;
-  display: flex; flex-direction: column; gap: 2px;
+.data-table tr:hover td { background: #fafafa; }
+.data-table tfoot td {
+  background: #f9fafb; font-weight: 700;
+  border-top: 1px solid #e5e7eb; border-bottom: none;
+  padding: 10px 12px;
 }
-.aging-card-0 { background: #f0fdf4; }
-.aging-card-1 { background: #fffbeb; }
-.aging-card-2 { background: #fff7ed; }
-.aging-card-3 { background: #fef2f2; }
-.aging-bucket { font-size: 0.7rem; font-weight: 700; color: #64748b; margin: 0; text-transform: uppercase; }
-.aging-val { font-size: 1.05rem; font-weight: 800; color: #1e293b; margin: 0; }
-.aging-count { font-size: 0.7rem; color: #94a3b8; margin: 0; }
-
-/* ── Stat banner ─────────────────────────────────────────────────────────── */
-.stat-banner {
-  background: linear-gradient(135deg, #1e3a8a, #4338ca);
-  border-radius: 14px; padding: 16px;
-  display: flex; align-items: center; gap: 14px;
+.td-right { text-align: right; font-variant-numeric: tabular-nums; }
+.tf-label { color: #6b7280; font-size: 0.75rem; text-transform: uppercase; }
+.tf-val { color: #111827; }
+.empty-td { text-align: center; color: #9ca3af; padding: 24px; }
+.badge-num {
+  display: inline-block; background: #f3f4f6; color: #374151;
+  font-size: 0.72rem; font-weight: 700; padding: 2px 7px;
+  border-radius: 9999px;
 }
-.stat-banner-icon { color: rgba(255,255,255,0.6); flex-shrink: 0; }
-.stat-banner-val { font-size: 1.3rem; font-weight: 800; color: #fff; margin: 0 0 2px; }
-.stat-banner-lbl { font-size: 0.72rem; color: rgba(255,255,255,0.65); margin: 0; }
+.badge-num-primary { background: #ede9fe; color: #6366f1; }
 
-/* ── Leaderboard table specifics ─────────────────────────────────────────── */
-.rank-badge {
+/* ── Hero card (collections) ──────────────────────────────────────────────── */
+.hero-card {
+  background: #6366f1; border-radius: 14px;
+  padding: 18px 16px; display: flex; align-items: center; gap: 14px;
+  box-shadow: 0 4px 16px rgba(99,102,241,0.25);
+}
+.hero-icon { color: rgba(255,255,255,0.6); flex-shrink: 0; }
+.hero-label { font-size: 0.72rem; color: rgba(255,255,255,0.7); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; margin: 0 0 4px; }
+.hero-value { font-size: 1.6rem; font-weight: 800; color: #fff; margin: 0 0 3px; }
+.hero-sub { font-size: 0.72rem; color: rgba(255,255,255,0.6); margin: 0; }
+
+/* ── Aging grid ───────────────────────────────────────────────────────────── */
+.aging-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.aging-tile {
+  background: #fff; border: 1px solid #e5e7eb;
+  border-radius: 12px; padding: 14px;
+}
+.aging-bucket { font-size: 0.7rem; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.04em; margin: 0 0 6px; }
+.aging-amount { font-size: 1.1rem; font-weight: 800; color: #111827; margin: 0 0 3px; }
+.aging-count { font-size: 0.7rem; color: #9ca3af; margin: 0 0 8px; }
+.aging-bar-bg { background: #f3f4f6; border-radius: 4px; height: 5px; overflow: hidden; }
+.aging-bar-fill { height: 100%; border-radius: 4px; transition: width 0.6s ease; }
+.aging-fill-0 { background: #10b981; }
+.aging-fill-1 { background: #f59e0b; }
+.aging-fill-2 { background: #f97316; }
+.aging-fill-3 { background: #ef4444; }
+.age-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+.age-dot-0 { background: #10b981; }
+.age-dot-1 { background: #f59e0b; }
+.age-dot-2 { background: #f97316; }
+.age-dot-3 { background: #ef4444; }
+
+/* ── Team table ───────────────────────────────────────────────────────────── */
+.rank-pill {
   display: inline-flex; align-items: center; justify-content: center;
   width: 22px; height: 22px; border-radius: 50%;
-  font-size: 0.72rem; font-weight: 800;
-  background: #f1f5f9; color: #64748b;
+  font-size: 0.7rem; font-weight: 800;
 }
-.rank-gold   { background: #fef3c7; color: #b45309; }
-.rank-silver { background: #f1f5f9; color: #475569; }
-.rank-bronze { background: #fdf0e8; color: #92400e; }
-.rep-cell { display: flex; align-items: center; gap: 8px; }
+.rank-1 { background: #fef3c7; color: #92400e; }
+.rank-2 { background: #f1f5f9; color: #334155; }
+.rank-3 { background: #fdf0e8; color: #7c2d12; }
+.rank-n { background: #f3f4f6; color: #6b7280; }
+.rep-row { display: flex; align-items: center; gap: 8px; }
 .rep-avatar {
   width: 26px; height: 26px; border-radius: 50%;
-  background: linear-gradient(135deg, #4f46e5, #7c3aed);
-  color: #fff; font-size: 0.62rem; font-weight: 800;
-  display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: #fff; font-size: 0.6rem; font-weight: 800;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
 }
+.rep-name { font-weight: 500; color: #111827; }
 
-/* ── Alert list (team tab) ────────────────────────────────────────────────── */
-.alert-list { display: flex; flex-direction: column; gap: 8px; }
-.alert-row {
+/* ── Alert list (team) ────────────────────────────────────────────────────── */
+.alert-list { display: flex; flex-direction: column; gap: 6px; }
+.alert-row-item {
   display: flex; align-items: center; gap: 8px;
-  font-size: 0.82rem; color: #92400e; padding: 8px 10px;
-  background: #fffbeb; border-radius: 8px;
+  background: #fffbeb; border: 1px solid #fde68a;
+  border-radius: 8px; padding: 9px 12px;
+  font-size: 0.8rem; color: #78350f;
 }
-.alert-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
-.alert-warning-dot { background: #f59e0b; }
+.dot-warn { width: 7px; height: 7px; border-radius: 50%; background: #f59e0b; flex-shrink: 0; }
+
+/* ── Visits stats ─────────────────────────────────────────────────────────── */
+.stat-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+.stat-card {
+  background: #fff; border: 1px solid #e5e7eb;
+  border-radius: 12px; padding: 14px 12px; text-align: center;
+}
+.stat-val { font-size: 1.4rem; font-weight: 800; color: #111827; margin: 0 0 4px; }
+.stat-lbl { font-size: 0.68rem; font-weight: 600; color: #9ca3af; text-transform: uppercase; margin: 0; }
 
 /* ── Map ──────────────────────────────────────────────────────────────────── */
-.map-card { padding: 14px 16px; }
-.dash-map { height: 220px; border-radius: 10px; overflow: hidden; z-index: 0; }
+.dash-map { height: 240px; border-radius: 8px; overflow: hidden; z-index: 0; }
 .map-legend {
-  display: flex; align-items: center; gap: 5px;
-  margin-top: 10px; font-size: 0.72rem; color: #64748b;
+  display: flex; align-items: center; gap: 6px;
+  margin-top: 10px; font-size: 0.72rem; color: #6b7280;
 }
-.legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-.legend-blue { background: #4f46e5; }
-.legend-gray { background: #94a3b8; }
+.leg-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.leg-dot + span { margin-right: 12px; }
+.leg-blue { background: #6366f1; }
+.leg-gray { background: #9ca3af; }
 
 /* ── Reminders ────────────────────────────────────────────────────────────── */
+.badge-red {
+  background: #fef2f2; color: #dc2626; border: 1px solid #fecaca;
+  font-size: 0.7rem; font-weight: 700; padding: 3px 8px; border-radius: 9999px;
+}
 .reminder-list { display: flex; flex-direction: column; gap: 8px; }
-.reminder-item {
+.reminder-row {
   display: flex; align-items: flex-start; gap: 10px;
-  background: #f8fafc; border-radius: 10px; padding: 10px 12px;
+  padding: 10px 12px; background: #f9fafb; border-radius: 10px;
+  border: 1px solid #f3f4f6;
 }
-.reminder-item.reminder-overdue { background: #fff5f5; }
-.reminder-dot {
-  width: 8px; height: 8px; border-radius: 50%;
-  flex-shrink: 0; margin-top: 5px;
-}
-.dot-red { background: #ef4444; }
-.dot-blue { background: #6366f1; }
-.reminder-info { flex: 1; }
-.reminder-customer { font-size: 0.85rem; font-weight: 700; color: #0f172a; margin: 0; }
-.reminder-date { font-size: 0.72rem; color: #94a3b8; margin: 2px 0 0; }
-.reminder-note { font-size: 0.78rem; color: #64748b; margin: 4px 0 0; font-style: italic; }
-.reminder-dismiss { background: none; border: none; color: #cbd5e1; cursor: pointer; font-size: 0.8rem; padding: 0 2px; flex-shrink: 0; }
+.reminder-row.overdue { background: #fef2f2; border-color: #fecaca; }
+.reminder-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 5px; }
+.rdot-indigo { background: #6366f1; }
+.rdot-red { background: #ef4444; }
+.reminder-body { flex: 1; }
+.r-name { font-size: 0.85rem; font-weight: 700; color: #111827; margin: 0; }
+.r-time { font-size: 0.72rem; color: #9ca3af; margin: 2px 0 0; }
+.r-note { font-size: 0.78rem; color: #6b7280; margin: 4px 0 0; font-style: italic; }
+.dismiss-btn { background: none; border: none; color: #d1d5db; cursor: pointer; font-size: 0.8rem; flex-shrink: 0; }
 
-/* ── Empty state ──────────────────────────────────────────────────────────── */
-.empty-state {
+/* ── Empty card ───────────────────────────────────────────────────────────── */
+.empty-card {
   display: flex; flex-direction: column; align-items: center;
-  gap: 10px; padding: 40px 20px; color: #94a3b8; font-size: 0.85rem;
+  justify-content: center; gap: 10px; padding: 40px 20px;
+  color: #9ca3af; font-size: 0.85rem; text-align: center;
 }
 </style>
