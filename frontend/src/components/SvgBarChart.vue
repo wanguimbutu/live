@@ -23,7 +23,7 @@
       v-else
       :viewBox="`0 0 ${W} ${H}`"
       class="chart-svg"
-      preserveAspectRatio="xMidYMid meet"
+      preserveAspectRatio="none"
     >
       <!-- Grid lines -->
       <line
@@ -51,7 +51,7 @@
           :x="barX(i) + barW / 2"
           :y="H - 5"
           text-anchor="middle"
-          font-size="10"
+          font-size="14"
           fill="#9ca3af"
           font-family="system-ui,sans-serif"
         >{{ item.label }}</text>
@@ -64,7 +64,7 @@
         :x="PAD.l - 5"
         :y="lbl.y + 4"
         text-anchor="end"
-        font-size="10"
+        font-size="14"
         fill="#9ca3af"
         font-family="system-ui,sans-serif"
       >{{ lbl.text }}</text>
@@ -98,7 +98,7 @@ const maxVal = computed(() => Math.max(...props.data.map(d => d.value), 1))
 
 const W = 400
 const H = 110
-const PAD = { t: 8, r: 10, b: 22, l: 38 }
+const PAD = { t: 8, r: 10, b: 22, l: 48 }
 const plotW = W - PAD.l - PAD.r
 const plotH = H - PAD.t - PAD.b
 const gap = 8
@@ -132,7 +132,12 @@ const yLabels = computed(() =>
 
 <style scoped>
 .chart-wrap { width: 100%; }
-.chart-svg { width: 100%; height: auto; display: block; }
+.chart-svg {
+  width: 100%;
+  height: auto;
+  max-height: 100px;
+  display: block;
+}
 
 .h-bars { display: flex; flex-direction: column; gap: 10px; }
 .h-row { display: flex; align-items: center; gap: 10px; }

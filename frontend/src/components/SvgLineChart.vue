@@ -3,7 +3,7 @@
     <svg
       :viewBox="`0 0 ${W} ${H}`"
       class="chart-svg"
-      preserveAspectRatio="xMidYMid meet"
+      preserveAspectRatio="none"
     >
       <defs>
         <linearGradient :id="`grad-${uid}`" x1="0" y1="0" x2="0" y2="1">
@@ -28,7 +28,7 @@
         :x="PAD.l - 6"
         :y="lbl.y + 4"
         text-anchor="end"
-        font-size="10"
+        font-size="16"
         fill="#9ca3af"
         font-family="system-ui,sans-serif"
       >{{ lbl.text }}</text>
@@ -54,7 +54,7 @@
         :x="tick.x"
         :y="PAD.t + plotH + 18"
         text-anchor="middle"
-        font-size="10"
+        font-size="16"
         fill="#9ca3af"
         font-family="system-ui,sans-serif"
       >{{ tick.label }}</text>
@@ -73,7 +73,7 @@ const props = defineProps({
 
 const W = 400
 const H = 120
-const PAD = { t: 8, r: 12, b: 26, l: 40 }
+const PAD = { t: 8, r: 12, b: 28, l: 52 }
 const plotW = W - PAD.l - PAD.r
 const plotH = H - PAD.t - PAD.b
 const uid = Math.random().toString(36).slice(2, 8)
@@ -154,5 +154,11 @@ const yLabels = computed(() => {
 
 <style scoped>
 .chart-wrap { width: 100%; }
-.chart-svg { width: 100%; height: auto; display: block; overflow: visible; }
+.chart-svg {
+  width: 100%;
+  height: auto;
+  max-height: 110px;
+  display: block;
+  overflow: visible;
+}
 </style>
