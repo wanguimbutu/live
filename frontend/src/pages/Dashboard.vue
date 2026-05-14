@@ -52,19 +52,6 @@
           </div>
         </transition>
 
-        <!-- ── Alert strip ────────────────────────────────────────────────── -->
-        <div v-if="alerts.length && activeTab === 'overview'" class="alert-strip">
-          <div
-            v-for="(a, i) in alerts.slice(0, 3)" :key="i"
-            class="alert-pill"
-            :class="`pill-${a.severity}`"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-            {{ a.message }}
-            <router-link v-if="a.type === 'pending_approvals'" to="/approvals" class="pill-link">Review →</router-link>
-          </div>
-        </div>
-
         <!-- ── Tab nav ────────────────────────────────────────────────────── -->
         <div class="tab-nav">
           <button
@@ -371,6 +358,92 @@
               </div>
             </div>
 
+            <!-- Live Locations Map -->
+            <div class="chart-card">
+              <div class="chart-head">
+                <div>
+                  <p class="chart-title">Live Field Map</p>
+                  <p class="chart-subtitle">
+                    {{ activeReps.length }} active · {{ allReps.length }} tracked today
+                    <button class="refresh-link" @click="loadLocations">↻ Refresh</button>
+                  </p>
+                </div>
+                <div class="map-legend-inline">
+                  <span v-for="(rep, i) in allReps.slice(0, 5)" :key="rep.user" class="legend-rep">
+                    <span class="legend-dot-sm" :style="{ background: REP_COLORS[i % REP_COLORS.length] }"></span>
+                    {{ rep.full_name.split(' ')[0] }}
+                  </span>
+                </div>
+              </div>
+              <div id="team-map" class="team-map"></div>
+              <div class="map-key">
+                <span class="mk-item"><span class="mk-dot mk-active"></span> Active (&lt;30 min)</span>
+                <span class="mk-item"><span class="mk-dot mk-idle"></span> Idle</span>
+                <span class="mk-item"><span class="mk-line"></span> Trail</span>
+                <span class="mk-item">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2" width="10" height="10"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/></svg>
+                  Visit
+                </span>
+              </div>
+            </div>
+
+            <!-- Distance / Stipend table -->
+            <div class="chart-card">
+              <div class="chart-head">
+                <div>
+                  <p class="chart-title">Distance Log</p>
+                  <p class="chart-subtitle">Kilometers covered per rep — used for stipend calculation</p>
+                </div>
+                <button class="dl-btn" @click="exportDistance">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  Export Excel
+                </button>
+              </div>
+              <div class="table-wrap">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Sales Rep</th>
+                      <th>Date</th>
+                      <th>Distance (km)</th>
+                      <th>Miles</th>
+                      <th>Pings</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="row in distanceSummary" :key="`${row.user}-${row.date}`">
+                      <td>
+                        <div class="rep-row">
+                          <span class="rep-avatar">{{ initials(row.full_name) }}</span>
+                          <span class="rep-name">{{ row.full_name }}</span>
+                        </div>
+                      </td>
+                      <td>{{ row.date }}</td>
+                      <td>
+                        <div class="dist-bar-wrap">
+                          <div class="dist-bar" :style="{ width: maxDistKm > 0 ? `${Math.min((row.total_km / maxDistKm) * 100, 100)}%` : '0%' }"></div>
+                          <span class="dist-val">{{ row.total_km }} km</span>
+                        </div>
+                      </td>
+                      <td class="td-right">{{ row.miles }}</td>
+                      <td class="td-right">{{ row.pings }}</td>
+                    </tr>
+                    <tr v-if="!distanceSummary.length">
+                      <td colspan="5" class="empty-td">No location data for this period</td>
+                    </tr>
+                  </tbody>
+                  <tfoot v-if="distanceSummary.length">
+                    <tr>
+                      <td class="tf-label" colspan="2">Total</td>
+                      <td>{{ distanceSummary.reduce((s, r) => +(s + r.total_km).toFixed(3), 0) }} km</td>
+                      <td class="td-right">{{ distanceSummary.reduce((s, r) => +(s + r.miles).toFixed(3), 0) }}</td>
+                      <td class="td-right">{{ distanceSummary.reduce((s, r) => s + r.pings, 0) }}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+
           </div>
 
           <!-- ══ VISITS ══════════════════════════════════════════════════════ -->
@@ -466,7 +539,12 @@ const aging = ref([])
 const alerts = ref([])
 const teamMembers = ref([])
 const visitPins = ref([])
+const allReps = ref([])
+const distanceSummary = ref([])
 let leafletMap = null
+let teamMap = null
+
+const REP_COLORS = ['#6366f1','#0ea5e9','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f97316','#84cc16']
 
 const tabs = [
   { key: 'overview', label: 'Overview' },
@@ -493,6 +571,8 @@ const agingData = computed(() => aging.value.map(a => ({ label: a.bucket.replace
 const trendTable = computed(() => trend.value.filter(d => d.orders > 0).reverse())
 const activityAlerts = computed(() => alerts.value.filter(a => a.type === 'low_activity'))
 const totalAging = computed(() => aging.value.reduce((s, a) => s + a.amount, 0))
+const activeReps = computed(() => allReps.value.filter(r => r.active))
+const maxDistKm = computed(() => Math.max(...distanceSummary.value.map(r => r.total_km), 1))
 
 // ── Excel exports ────────────────────────────────────────────────────────────
 function downloadExcel(sheets, filename) {
@@ -527,6 +607,89 @@ function exportAll() {
     { name: 'Aging', rows: [['Bucket', 'Invoices', 'Amount (KES)'], ...aging.value.map(a => [a.bucket, a.count, a.amount])] },
     { name: 'Leaderboard', rows: [['Rank', 'Sales Rep', 'Orders', 'Revenue (KES)'], ...leaderboard.value.map((r, i) => [i + 1, r.name, r.order_count, r.revenue])] },
   ], `analytics-${filters.value.fromDate}-${filters.value.toDate}.xlsx`)
+}
+function exportDistance() {
+  const rows = [['Sales Rep', 'Date', 'Distance (km)', 'Miles', 'Pings'],
+    ...distanceSummary.value.map(r => [r.full_name, r.date, r.total_km, r.miles, r.pings])]
+  downloadExcel([{ name: 'Distance Log', rows }], `distance-log-${filters.value.fromDate}-${filters.value.toDate}.xlsx`)
+}
+
+// ── Location / Team map ───────────────────────────────────────────────────────
+async function loadLocations() {
+  try {
+    const [locRes, distRes] = await Promise.allSettled([
+      apiFetch(`/api/method/live.api.location.get_active_locations?date=${today}`),
+      apiFetch(`/api/method/live.api.location.get_distance_summary?from_date=${filters.value.fromDate}&to_date=${filters.value.toDate}`),
+    ])
+    if (locRes.status === 'fulfilled') allReps.value = locRes.value || []
+    if (distRes.status === 'fulfilled') distanceSummary.value = distRes.value || []
+
+    if (allReps.value.length) {
+      await nextTick()
+      initTeamMap()
+    }
+  } catch (e) {
+    console.error('Location load error:', e)
+  }
+}
+
+function initTeamMap() {
+  const L = window.L
+  if (!L) return
+  const el = document.getElementById('team-map')
+  if (!el) return
+
+  // Destroy and recreate if already initialised (refresh)
+  if (teamMap) { teamMap.remove(); teamMap = null }
+
+  const reps = allReps.value.filter(r => r.trail && r.trail.length > 0)
+  if (!reps.length) return
+
+  // Collect all coords for bounds
+  const allCoords = reps.flatMap(r => r.trail.map(p => [p.lat, p.lng]))
+  const center = allCoords[0]
+  teamMap = L.map(el, { zoomControl: true }).setView(center, 10)
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OSM', maxZoom: 19 }).addTo(teamMap)
+
+  reps.forEach((rep, idx) => {
+    const color = REP_COLORS[idx % REP_COLORS.length]
+    const trail = rep.trail.map(p => [p.lat, p.lng])
+
+    // Draw trail polyline
+    if (trail.length > 1) {
+      L.polyline(trail, { color, weight: 3, opacity: 0.75 }).addTo(teamMap)
+    }
+
+    // Start marker (hollow circle)
+    if (trail.length) {
+      L.circleMarker(trail[0], { radius: 5, color, fillColor: '#fff', fillOpacity: 1, weight: 2 })
+        .bindPopup(`<b>${rep.full_name}</b><br>Started here`)
+        .addTo(teamMap)
+    }
+
+    // Current position marker
+    const last = trail[trail.length - 1]
+    const isActive = rep.active
+    const dotHtml = `<div style="width:${isActive ? 14 : 10}px;height:${isActive ? 14 : 10}px;background:${color};border-radius:50%;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);${isActive ? `animation:pulse-${idx} 2s ease-in-out infinite` : ''}"></div>`
+    const icon = L.divIcon({ className: '', html: dotHtml, iconAnchor: [7, 7] })
+    L.marker(last, { icon })
+      .bindPopup(`<b>${rep.full_name}</b><br>${isActive ? '🟢 Active' : '⚪ Idle'}<br>📍 ${rep.trail.length} pings<br>📏 ${rep.total_km} km today`)
+      .addTo(teamMap)
+  })
+
+  // Also show visit pins
+  visitPins.value.filter(p => p.latitude && p.longitude).forEach(p => {
+    const visitIcon = L.divIcon({
+      className: '',
+      html: `<div style="width:8px;height:8px;background:#6366f1;border-radius:50%;border:2px solid #fff;"></div>`,
+      iconAnchor: [4, 4],
+    })
+    L.marker([p.latitude, p.longitude], { icon: visitIcon })
+      .bindPopup(`<b>${p.customer_name}</b><br>${p.user_name}<br>${p.sales_order ? '✓ Order' : 'Visit only'}`)
+      .addTo(teamMap)
+  })
+
+  teamMap.fitBounds(L.latLngBounds(allCoords), { padding: [20, 20] })
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -580,6 +743,7 @@ async function loadAll() {
       teamMembers.value = await apiFetch('/api/method/live.api.dashboard.get_team_members').catch(() => []) || []
     }
     if (visitPins.value.length) { await nextTick(); initMap() }
+    loadLocations()
   } catch (e) {
     console.error('Dashboard load error:', e)
   } finally {
@@ -924,4 +1088,55 @@ onMounted(loadAll)
   justify-content: center; gap: 10px; padding: 40px 20px;
   color: #9ca3af; font-size: 0.85rem; text-align: center;
 }
+
+/* ── Team live map ────────────────────────────────────────────────────────── */
+.team-map {
+  height: 280px; border-radius: 8px; overflow: hidden; z-index: 0;
+  border: 1px solid #e5e7eb;
+}
+.map-key {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  margin-top: 10px; font-size: 0.7rem; color: #6b7280;
+}
+.mk-item { display: flex; align-items: center; gap: 5px; }
+.mk-dot {
+  width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0;
+  border: 2px solid #fff; box-shadow: 0 0 0 1px #d1d5db;
+}
+.mk-active { background: #10b981; box-shadow: 0 0 0 1px #10b981; }
+.mk-idle   { background: #9ca3af; box-shadow: 0 0 0 1px #9ca3af; }
+.mk-line {
+  width: 20px; height: 3px; border-radius: 2px;
+  background: linear-gradient(90deg, #6366f1, #0ea5e9);
+}
+.map-legend-inline {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  max-width: 180px;
+}
+.legend-rep {
+  display: flex; align-items: center; gap: 3px;
+  font-size: 0.68rem; color: #6b7280; white-space: nowrap;
+}
+.legend-dot-sm {
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+}
+
+/* ── Distance bar in table ────────────────────────────────────────────────── */
+.dist-bar-wrap {
+  display: flex; align-items: center; gap: 8px; min-width: 120px;
+}
+.dist-bar {
+  height: 8px; border-radius: 4px; background: #6366f1;
+  min-width: 2px; transition: width 0.5s cubic-bezier(.4,0,.2,1);
+  flex-shrink: 0;
+}
+.dist-val { font-size: 0.78rem; color: #374151; white-space: nowrap; }
+
+/* ── Refresh button ───────────────────────────────────────────────────────── */
+.refresh-link {
+  display: inline; background: none; border: none;
+  color: #6366f1; font-size: 0.72rem; font-weight: 600;
+  cursor: pointer; padding: 0 0 0 6px; margin: 0;
+}
+.refresh-link:hover { text-decoration: underline; }
 </style>

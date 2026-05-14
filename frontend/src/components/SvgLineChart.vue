@@ -72,8 +72,8 @@ const props = defineProps({
 })
 
 const W = 400
-const H = 180
-const PAD = { t: 12, r: 12, b: 30, l: 44 }
+const H = 120
+const PAD = { t: 8, r: 12, b: 26, l: 40 }
 const plotW = W - PAD.l - PAD.r
 const plotH = H - PAD.t - PAD.b
 const uid = Math.random().toString(36).slice(2, 8)

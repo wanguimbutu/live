@@ -121,6 +121,50 @@
             </div>
           </div>
 
+          <!-- Catalog -->
+          <div class="section-card">
+            <p class="section-title">Product Catalog</p>
+
+            <div class="field-group">
+              <label class="field-label">Allowed Item Groups</label>
+              <p class="field-hint" style="margin-bottom:8px">Only items in these groups appear in the catalog. Leave empty to show all items.</p>
+
+              <!-- Selected tags -->
+              <div class="tag-list" v-if="form.allowed_item_groups.length">
+                <span
+                  v-for="g in form.allowed_item_groups"
+                  :key="g"
+                  class="tag-chip"
+                >
+                  {{ g }}
+                  <button class="tag-remove" @click="removeItemGroup(g)">✕</button>
+                </span>
+              </div>
+
+              <!-- Searchable add dropdown -->
+              <div class="searchable-select" :class="{ open: igDropOpen }">
+                <div class="select-display" @click="igDropOpen = !igDropOpen">
+                  <span class="select-placeholder">Add item group…</span>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="6 9 12 15 18 9"/></svg>
+                </div>
+                <div v-if="igDropOpen" class="select-dropdown">
+                  <input v-model="igSearch" class="select-search" placeholder="Search groups…" @click.stop />
+                  <div
+                    v-for="g in filteredItemGroups"
+                    :key="g.name"
+                    class="select-option"
+                    :class="{ selected: form.allowed_item_groups.includes(g.name) }"
+                    @click="toggleItemGroup(g.name)"
+                  >
+                    <span>{{ g.name }}</span>
+                    <svg v-if="form.allowed_item_groups.includes(g.name)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="13" height="13" style="flex-shrink:0;color:#1d4ed8"><polyline points="20 6 9 17 4 12"/></svg>
+                  </div>
+                  <div v-if="filteredItemGroups.length === 0" class="select-option" style="color:#94a3b8"><em>No groups found</em></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <!-- Branding -->
           <div class="section-card">
             <p class="section-title">Branding</p>
@@ -160,12 +204,15 @@ const isSystemManager = ref(false)
 const priceLists = ref([])
 const taxTemplates = ref([])
 const warehouses = ref([])
+const itemGroups = ref([])
 const plSearch = ref('')
 const taxSearch = ref('')
 const whSearch = ref('')
+const igSearch = ref('')
 const plDropOpen = ref(false)
 const taxDropOpen = ref(false)
 const whDropOpen = ref(false)
+const igDropOpen = ref(false)
 
 const form = ref({
   default_price_list: '',
@@ -174,6 +221,7 @@ const form = ref({
   approval_threshold: 100000,
   app_title: 'Live Sales',
   welcome_message: '',
+  allowed_item_groups: [],
 })
 
 const filteredPriceLists = computed(() => {
@@ -191,6 +239,22 @@ const filteredWarehouses = computed(() => {
   return warehouses.value.filter(w => w.name.toLowerCase().includes(q))
 })
 
+const filteredItemGroups = computed(() => {
+  const q = igSearch.value.toLowerCase()
+  return itemGroups.value.filter(g => g.name.toLowerCase().includes(q))
+})
+
+function toggleItemGroup(name) {
+  const idx = form.value.allowed_item_groups.indexOf(name)
+  if (idx === -1) form.value.allowed_item_groups.push(name)
+  else form.value.allowed_item_groups.splice(idx, 1)
+  igSearch.value = ''
+}
+
+function removeItemGroup(name) {
+  form.value.allowed_item_groups = form.value.allowed_item_groups.filter(g => g !== name)
+}
+
 function getCsrf() {
   return window.csrf_token || document.cookie.match(/csrftoken=([^;]+)/)?.[1] || ''
 }
@@ -198,17 +262,20 @@ function getCsrf() {
 async function loadSettings() {
   loading.value = true
   try {
-    const [settingsRes, plRes, taxRes, whRes] = await Promise.all([
+    const [settingsRes, plRes, taxRes, whRes, igRes] = await Promise.all([
       fetch('/api/method/live.api.settings.get_app_settings', { credentials: 'include' }),
       fetch('/api/method/live.api.settings.get_all_price_lists', { credentials: 'include' }),
       fetch('/api/method/live.api.settings.get_all_tax_templates', { credentials: 'include' }),
       fetch('/api/method/live.api.settings.get_all_warehouses', { credentials: 'include' }),
+      fetch('/api/method/live.api.settings.get_all_item_groups', { credentials: 'include' }),
     ])
 
     const { message: settings } = await settingsRes.json()
     if (settings) {
       isSystemManager.value = !!settings.is_admin
-      const { is_admin, ...rest } = settings
+      const { is_admin, current_user, ...rest } = settings
+      // ensure allowed_item_groups is always an array
+      if (!Array.isArray(rest.allowed_item_groups)) rest.allowed_item_groups = []
       Object.assign(form.value, rest)
     }
 
@@ -220,6 +287,9 @@ async function loadSettings() {
 
     const { message: whs } = await whRes.json()
     warehouses.value = whs || []
+
+    const { message: igs } = await igRes.json()
+    itemGroups.value = igs || []
   } catch (e) {
     console.error('Admin settings load error:', e)
   } finally {
@@ -340,9 +410,23 @@ onMounted(loadSettings)
   color: #1e293b; background: transparent; box-sizing: border-box;
 }
 .select-search:focus { outline: none; }
-.select-option { padding: 10px 14px; font-size: 0.88rem; color: #374151; cursor: pointer; }
+.select-option { padding: 10px 14px; font-size: 0.88rem; color: #374151; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 6px; }
 .select-option:hover { background: #f8fafc; }
 .select-option.selected { background: #eff6ff; color: #1d4ed8; font-weight: 600; }
+
+/* Item group tags */
+.tag-list { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.tag-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe;
+  border-radius: 9999px; padding: 3px 10px;
+  font-size: 0.78rem; font-weight: 600;
+}
+.tag-remove {
+  background: none; border: none; color: #93c5fd; cursor: pointer;
+  padding: 0; font-size: 0.7rem; line-height: 1;
+}
+.tag-remove:hover { color: #1d4ed8; }
 
 .save-btn {
   width: 100%; padding: 14px; background: #1d4ed8; color: #fff;

@@ -70,22 +70,43 @@ def get_stock(item_codes, warehouse=None):
     return result
 
 
+def _get_allowed_item_groups():
+    """Return the admin-configured item group list, or [] if unrestricted."""
+    import json
+    try:
+        raw = frappe.db.get_single_value('Live App Settings', 'allowed_item_groups')
+        if not raw:
+            return []
+        val = json.loads(raw)
+        return val if isinstance(val, list) else []
+    except Exception:
+        return []
+
+
 @frappe.whitelist()
 def get_catalog(search=None, warehouse=None, page=0, page_size=50):
     """
     Return items with stock levels for the product catalog.
+    Filtered by allowed_item_groups from Live App Settings when configured.
     """
     if not frappe.session.user or frappe.session.user == 'Guest':
         frappe.throw('Authentication required', frappe.AuthenticationError)
 
     page = int(page or 0)
     page_size = int(page_size or 50)
-    search_clause = ''
     params = {'limit': page_size, 'offset': page * page_size}
+    extra_clauses = []
 
     if search:
-        search_clause = 'AND (item.name LIKE %(search)s OR item.item_name LIKE %(search)s)'
+        extra_clauses.append('AND (item.name LIKE %(search)s OR item.item_name LIKE %(search)s)')
         params['search'] = f'%{search}%'
+
+    allowed_groups = _get_allowed_item_groups()
+    if allowed_groups:
+        extra_clauses.append('AND item.item_group IN %(item_groups)s')
+        params['item_groups'] = allowed_groups
+
+    where_extra = ' '.join(extra_clauses)
 
     items = frappe.db.sql(f'''
         SELECT
@@ -100,7 +121,7 @@ def get_catalog(search=None, warehouse=None, page=0, page_size=50):
         FROM `tabItem` item
         LEFT JOIN `tabBin` bin ON bin.item_code = item.name
         WHERE item.disabled = 0 AND item.is_sales_item = 1
-          {search_clause}
+          {where_extra}
         GROUP BY item.name
         ORDER BY item.item_name ASC
         LIMIT %(limit)s OFFSET %(offset)s
@@ -111,18 +132,13 @@ def get_catalog(search=None, warehouse=None, page=0, page_size=50):
         i['reserved_qty'] = flt(i['reserved_qty'])
         i['standard_rate'] = flt(i['standard_rate'])
         i['available_qty'] = max(0, i['actual_qty'] - i['reserved_qty'])
+        i['stock_status'] = 'out' if i['available_qty'] <= 0 else ('low' if i['available_qty'] <= 10 else 'in')
 
-        if i['available_qty'] <= 0:
-            i['stock_status'] = 'out'
-        elif i['available_qty'] <= 10:
-            i['stock_status'] = 'low'
-        else:
-            i['stock_status'] = 'in'
-
-    total = frappe.db.sql(f'''
+    count_sql = frappe.db.sql(f'''
         SELECT COUNT(*) as cnt FROM `tabItem`
         WHERE disabled = 0 AND is_sales_item = 1
-        {search_clause}
-    ''', params, as_dict=True)[0].cnt
+        {where_extra}
+    ''', params, as_dict=True)
+    total = count_sql[0].cnt if count_sql else 0
 
     return {'items': items, 'total': int(total), 'page': page, 'page_size': page_size}

@@ -1,6 +1,7 @@
 import frappe
 from frappe import _
 from frappe.utils import now_datetime, time_diff_in_seconds
+from live.api.location import log_location_trail
 
 
 @frappe.whitelist()
@@ -36,6 +37,14 @@ def update_presence(latitude=None, longitude=None, accuracy=None, battery_level=
 
     doc.flags.ignore_permissions = True
     doc.save()
+
+    # Also append to the location trail for distance tracking
+    if latitude is not None and longitude is not None:
+        try:
+            log_location_trail(user, latitude, longitude, accuracy)
+        except Exception:
+            pass  # never block presence update if trail logging fails
+
     frappe.db.commit()
 
     return {

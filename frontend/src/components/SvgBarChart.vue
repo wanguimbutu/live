@@ -97,8 +97,8 @@ function itemColor(i) {
 const maxVal = computed(() => Math.max(...props.data.map(d => d.value), 1))
 
 const W = 400
-const H = 160
-const PAD = { t: 12, r: 10, b: 24, l: 40 }
+const H = 110
+const PAD = { t: 8, r: 10, b: 22, l: 38 }
 const plotW = W - PAD.l - PAD.r
 const plotH = H - PAD.t - PAD.b
 const gap = 8

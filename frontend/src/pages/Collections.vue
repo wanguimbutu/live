@@ -177,13 +177,10 @@ async function loadOutstanding() {
   loading.value = true
   error.value = ''
   try {
-    const res = await fetch(
-      '/api/resource/Sales%20Invoice?filters=[["outstanding_amount",">",0],["docstatus","=",1]]&fields=["name","customer","customer_name","posting_date","due_date","grand_total","outstanding_amount"]&order_by=outstanding_amount%20desc&limit_page_length=200',
-      { credentials: 'include' }
-    )
+    const res = await fetch('/api/method/live.api.customers.get_my_outstanding', { credentials: 'include' })
     if (!res.ok) throw new Error(`Server error ${res.status}`)
-    const { data } = await res.json()
-    invoices.value = data || []
+    const { message } = await res.json()
+    invoices.value = message || []
   } catch (e) {
     error.value = e.message || 'Failed to load outstanding invoices'
   } finally {

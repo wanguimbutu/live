@@ -5,9 +5,23 @@ def _is_system_manager():
 	return "System Manager" in frappe.get_roles()
 
 
+def _parse_item_groups(raw):
+	"""Parse the stored JSON list, return [] on any error."""
+	if not raw:
+		return []
+	try:
+		import json
+		val = json.loads(raw)
+		return val if isinstance(val, list) else []
+	except Exception:
+		return []
+
+
 @frappe.whitelist()
 def get_app_settings():
 	"""Public — readable by all logged-in users (Sales User, Sales Manager, System Manager)."""
+	is_admin = _is_system_manager()
+	current_user = frappe.session.user
 	try:
 		doc = frappe.get_single("Live App Settings")
 		return {
@@ -17,7 +31,9 @@ def get_app_settings():
 			"approval_threshold": doc.approval_threshold or 100000,
 			"app_title": doc.app_title or "Live Sales",
 			"welcome_message": doc.welcome_message or "",
-			"is_admin": _is_system_manager(),
+			"allowed_item_groups": _parse_item_groups(doc.allowed_item_groups),
+			"is_admin": is_admin,
+			"current_user": current_user,
 		}
 	except Exception:
 		return {
@@ -27,7 +43,9 @@ def get_app_settings():
 			"approval_threshold": 100000,
 			"app_title": "Live Sales",
 			"welcome_message": "",
-			"is_admin": _is_system_manager(),
+			"allowed_item_groups": [],
+			"is_admin": is_admin,
+			"current_user": current_user,
 		}
 
 
@@ -39,8 +57,10 @@ def save_app_settings(
 	approval_threshold=100000,
 	app_title="Live Sales",
 	welcome_message="",
+	allowed_item_groups=None,
 ):
 	"""System Manager only."""
+	import json
 	if "System Manager" not in frappe.get_roles():
 		frappe.throw("Only System Managers can update app settings.", frappe.PermissionError)
 
@@ -51,6 +71,13 @@ def save_app_settings(
 	doc.approval_threshold = frappe.utils.flt(approval_threshold) or 100000
 	doc.app_title = app_title or "Live Sales"
 	doc.welcome_message = welcome_message
+	if allowed_item_groups is not None:
+		if isinstance(allowed_item_groups, str):
+			try:
+				allowed_item_groups = json.loads(allowed_item_groups)
+			except Exception:
+				allowed_item_groups = []
+		doc.allowed_item_groups = json.dumps(allowed_item_groups if isinstance(allowed_item_groups, list) else [])
 	doc.save(ignore_permissions=True)
 	frappe.db.commit()
 	return {"success": True}
@@ -62,6 +89,17 @@ def get_all_price_lists():
 	return frappe.get_all(
 		"Price List",
 		filters={"enabled": 1, "selling": 1},
+		fields=["name"],
+		order_by="name asc",
+	)
+
+
+@frappe.whitelist()
+def get_all_item_groups():
+	"""Return non-group item groups for the allowed_item_groups picker."""
+	return frappe.get_all(
+		"Item Group",
+		filters={"is_group": 0},
 		fields=["name"],
 		order_by="name asc",
 	)

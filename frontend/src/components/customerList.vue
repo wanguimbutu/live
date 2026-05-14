@@ -236,6 +236,8 @@ const addLoading = ref(false)
 const addError = ref('')
 const limitStart = ref(0)
 const LIMIT = 20
+const isAdmin = ref(false)
+const currentUser = ref('')
 
 const showCustomerVisitModal = ref(false)
 const showFeedbackModal = ref(false)
@@ -277,18 +279,16 @@ async function fetchCustomers(isSearch = false) {
 async function fetchCustomersFromServer(isSearch = false, background = false) {
   if (!background) loadingCustomers.value = true
   try {
-    const filters = searchQuery.value ? [['customer_name', 'like', `%${searchQuery.value}%`]] : []
     const params = new URLSearchParams({
-      fields: JSON.stringify(['name', 'customer_name']),
-      filters: JSON.stringify(filters),
-      order_by: 'customer_name asc',
       limit_start: String(isSearch || background ? 0 : limitStart.value),
       limit_page_length: String(LIMIT),
+      ...(searchQuery.value ? { search: searchQuery.value } : {}),
     })
-    const res = await fetch(`/api/resource/Customer?${params}`, { credentials: 'include' })
+    const res = await fetch(`/api/method/live.api.customers.get_my_customers?${params}`, { credentials: 'include' })
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    const { data } = await res.json()
-    const fetched = (data || []).map(c => ({ name: c.name, customer_name: c.customer_name }))
+    const { message } = await res.json()
+    const data = message || []
+    const fetched = data.map(c => ({ name: c.name, customer_name: c.customer_name }))
     if (isSearch || background) {
       customers.value = fetched
       limitStart.value = fetched.length

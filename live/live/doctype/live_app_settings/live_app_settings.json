@@ -11,6 +11,7 @@
   "default_taxes_and_charges",
   "default_warehouse",
   "approval_threshold",
+  "allowed_item_groups",
   "column_break_1",
   "app_title",
   "welcome_message"
@@ -46,6 +47,12 @@
    "label": "Approval Threshold (KES)",
    "description": "Orders above this value require manager approval before submitting to ERPNext.",
    "default": "100000"
+  },
+  {
+   "fieldname": "allowed_item_groups",
+   "fieldtype": "Text",
+   "label": "Allowed Item Groups",
+   "description": "JSON list of item groups shown in the product catalog. Leave empty to show all."
   },
   {
    "fieldname": "column_break_1",
