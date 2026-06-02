@@ -117,7 +117,7 @@
                 <span v-if="item.item_code" class="select-value item-selected-display">
                   <span class="sel-code">{{ item.item_code }}</span>
                   <span class="sel-sep">—</span>
-                  <span class="sel-name">{{ items.find(i => i.item_code === item.item_code)?.item_name || '' }}</span>
+                  <span class="sel-name">{{ selectedItemNames[item.item_code] || '' }}</span>
                 </span>
                 <span v-else class="select-placeholder">Search by code or name…</span>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" class="select-chevron">
@@ -125,18 +125,34 @@
                 </svg>
               </div>
               <div v-if="itemDropOpen[index]" class="select-dropdown">
-                <input v-model="itemSearch[index]" class="select-search" placeholder="Search code or name…" @click.stop />
-                <div
-                  v-for="it in filteredItems(index)"
-                  :key="it.item_code"
-                  class="select-option item-opt"
-                  :class="{ selected: item.item_code === it.item_code }"
-                  @click="selectItem(index, it)"
-                >
-                  <span class="opt-code">{{ it.item_code }}</span>
-                  <span class="opt-name">{{ it.item_name }}</span>
+                <input
+                  v-model="itemSearch[index]"
+                  class="select-search"
+                  placeholder="Type item code or name…"
+                  @input="searchItems(index, itemSearch[index])"
+                  @click.stop
+                  autofocus
+                />
+                <div v-if="itemSearching[index]" class="select-searching">
+                  <span class="spin-xs"></span> Searching…
                 </div>
-                <div v-if="filteredItems(index).length === 0" class="select-empty">No items found</div>
+                <template v-else>
+                  <div
+                    v-for="it in itemResults[index]"
+                    :key="it.item_code"
+                    class="select-option item-opt"
+                    :class="{ selected: item.item_code === it.item_code }"
+                    @click="selectItem(index, it)"
+                  >
+                    <div class="opt-main">
+                      <span class="opt-code">{{ it.item_code }}</span>
+                      <span class="opt-name">{{ it.item_name }}</span>
+                    </div>
+                    <span class="opt-stock" :class="`opt-stock-${it.stock_status}`">{{ it.available_qty }} {{ it.stock_uom }}</span>
+                  </div>
+                  <div v-if="itemSearch[index] && itemResults[index].length === 0" class="select-empty">No items found</div>
+                  <div v-if="!itemSearch[index]" class="select-hint">Start typing to search items…</div>
+                </template>
               </div>
             </div>
           </div>
@@ -228,7 +244,6 @@ const { isOnline } = useOfflineQueue()
 const { addReminder } = useReminders()
 
 const customers = ref([])
-const items = ref([])
 const loadingData = ref(false)
 const submitting = ref(false)
 const completed = ref(false)
@@ -240,6 +255,11 @@ const customerSearch = ref('')
 const customerDropOpen = ref(false)
 const itemDropOpen = ref([])
 const itemSearch = ref([])
+const itemResults = ref([[]])
+const itemSearching = ref([false])
+const selectedItemNames = ref({})
+
+const itemSearchTimers = []
 
 const itemStock = ref({})
 const pendingApproval = ref(false)
@@ -270,12 +290,26 @@ const filteredCustomers = computed(() => {
   )
 })
 
-function filteredItems(index) {
-  const q = (itemSearch.value[index] || '').toLowerCase()
-  if (!q) return items.value
-  return items.value.filter(i =>
-    i.item_code.toLowerCase().includes(q) || (i.item_name || '').toLowerCase().includes(q)
-  )
+async function searchItems(index, query) {
+  clearTimeout(itemSearchTimers[index])
+  if (!query || query.trim().length === 0) {
+    itemResults.value[index] = []
+    return
+  }
+  itemSearchTimers[index] = setTimeout(async () => {
+    itemSearching.value[index] = true
+    try {
+      const params = new URLSearchParams({ search: query.trim(), page_size: 25 })
+      const res = await fetch(`/api/method/live.api.stock.get_catalog?${params}`, { credentials: 'include' })
+      if (!res.ok) throw new Error(res.status)
+      const { message } = await res.json()
+      itemResults.value[index] = message?.items || []
+    } catch {
+      itemResults.value[index] = []
+    } finally {
+      itemSearching.value[index] = false
+    }
+  }, 250)
 }
 
 function closeAllDrops() {
@@ -293,12 +327,16 @@ function addItem() {
   newSalesOrder.value.items.push({ item_code: '', qty: 1, rate: 0, warehouse: DEFAULT_WAREHOUSE })
   itemDropOpen.value.push(false)
   itemSearch.value.push('')
+  itemResults.value.push([])
+  itemSearching.value.push(false)
 }
 
 function removeItem(index) {
   newSalesOrder.value.items.splice(index, 1)
   itemDropOpen.value.splice(index, 1)
   itemSearch.value.splice(index, 1)
+  itemResults.value.splice(index, 1)
+  itemSearching.value.splice(index, 1)
 }
 
 function toggleItemDrop(index) {
@@ -327,10 +365,12 @@ async function fetchItemPrice(index, itemCode) {
 function selectItem(index, it) {
   newSalesOrder.value.items[index].item_code = it.item_code
   if (it.standard_rate) newSalesOrder.value.items[index].rate = it.standard_rate
+  selectedItemNames.value[it.item_code] = it.item_name
   itemDropOpen.value[index] = false
   itemSearch.value[index] = ''
+  itemResults.value[index] = []
   fetchItemPrice(index, it.item_code)
-  fetchItemStock(it.item_code)
+  itemStock.value[it.item_code] = it.available_qty ?? null
 }
 
 async function fetchItemStock(itemCode) {
@@ -418,7 +458,6 @@ async function loadFormData() {
     try {
       const c = JSON.parse(cached)
       customers.value = c.customers || []
-      items.value = c.items || []
     } catch {}
   }
 
@@ -426,18 +465,11 @@ async function loadFormData() {
 
   loadingData.value = true
   try {
-    const [cRes, iRes] = await Promise.all([
-      fetch('/api/resource/Customer?fields=["name","customer_name"]&limit_page_length=200', { credentials: 'include' }),
-      fetch('/api/method/live.api.stock.get_catalog?page_size=500', { credentials: 'include' }),
-    ])
+    const cRes = await fetch('/api/resource/Customer?fields=["name","customer_name"]&limit_page_length=200', { credentials: 'include' })
     customers.value = (await cRes.json()).data || []
-    items.value = (await iRes.json()).message?.items || []
-    localStorage.setItem('live_form_cache', JSON.stringify({
-      customers: customers.value,
-      items: items.value,
-    }))
+    localStorage.setItem('live_form_cache', JSON.stringify({ customers: customers.value }))
   } catch (e) {
-    console.error('Error fetching form data:', e)
+    console.error('Error fetching customers:', e)
   } finally {
     loadingData.value = false
   }
@@ -546,6 +578,8 @@ function resetForm() {
   }
   itemDropOpen.value = [false]
   itemSearch.value = ['']
+  itemResults.value = [[]]
+  itemSearching.value = [false]
 }
 
 onMounted(() => {
@@ -557,11 +591,18 @@ onMounted(() => {
       rate: i.rate || 0,
       warehouse: DEFAULT_WAREHOUSE,
     }))
-    preload.forEach(i => { if (i.item_code) fetchItemStock(i.item_code) })
+    preload.forEach(i => {
+      if (i.item_code) {
+        selectedItemNames.value[i.item_code] = i.item_name || i.item_code
+        itemStock.value[i.item_code] = null
+      }
+    })
   }
   const len = newSalesOrder.value.items.length
   itemDropOpen.value = Array(len).fill(false)
   itemSearch.value = Array(len).fill('')
+  itemResults.value = Array.from({ length: len }, () => [])
+  itemSearching.value = Array(len).fill(false)
   loadAppSettings()
   loadFormData()
 })
@@ -669,14 +710,27 @@ onMounted(() => {
 .select-option:hover { background: #f9fafb; }
 .select-option.selected { background: #eef2ff; color: #4f46e5; font-weight: 600; }
 .select-empty, .select-loading { padding: 14px; font-size: 0.85rem; color: #9ca3af; text-align: center; }
+.select-hint { padding: 14px; font-size: 0.82rem; color: #cbd5e1; text-align: center; }
+.select-searching { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 14px; font-size: 0.82rem; color: #9ca3af; }
+.spin-xs {
+  display: inline-block; width: 12px; height: 12px;
+  border: 2px solid #e2e8f0; border-top-color: #6366f1;
+  border-radius: 50%; animation: spin 0.65s linear infinite;
+}
 
 /* ── Item display ── */
 .item-selected-display { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
 .sel-code { font-weight: 700; color: #111827; font-size: 0.88rem; }
 .sel-sep { color: #d1d5db; }
 .sel-name { color: #6b7280; font-size: 0.8rem; }
+.item-opt { display: flex; align-items: center; gap: 10px; }
+.opt-main { display: flex; flex-direction: column; flex: 1; min-width: 0; }
 .opt-code { font-weight: 700; color: #111827; font-size: 0.85rem; }
 .opt-name { color: #6b7280; font-size: 0.74rem; margin-top: 1px; }
+.opt-stock { font-size: 0.72rem; font-weight: 600; flex-shrink: 0; padding: 2px 6px; border-radius: 5px; }
+.opt-stock-in  { background: #dcfce7; color: #166534; }
+.opt-stock-low { background: #fef9c3; color: #854d0e; }
+.opt-stock-out { background: #fee2e2; color: #991b1b; }
 
 /* ── Items section ── */
 .items-header {
