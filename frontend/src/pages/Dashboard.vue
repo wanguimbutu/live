@@ -896,7 +896,7 @@ onMounted(loadAll)
 .slide-enter-from, .slide-leave-to { opacity: 0; transform: translateY(-8px); }
 
 /* ── Content wrapper ──────────────────────────────────────────────────────── */
-.content { padding: 14px 12px; display: flex; flex-direction: column; gap: 12px; max-width: 680px; margin: 0 auto; }
+.content { padding: 14px 12px; display: flex; flex-direction: column; gap: 12px; }
 
 /* ── Metric row ───────────────────────────────────────────────────────────── */
 .metric-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }

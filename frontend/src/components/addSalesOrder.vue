@@ -117,7 +117,7 @@
                 <span v-if="item.item_code" class="select-value item-selected-display">
                   <span class="sel-code">{{ item.item_code }}</span>
                   <span class="sel-sep">—</span>
-                  <span class="sel-name">{{ items.find(i => i.name === item.item_code)?.item_name || '' }}</span>
+                  <span class="sel-name">{{ items.find(i => i.item_code === item.item_code)?.item_name || '' }}</span>
                 </span>
                 <span v-else class="select-placeholder">Search by code or name…</span>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" class="select-chevron">
@@ -128,12 +128,12 @@
                 <input v-model="itemSearch[index]" class="select-search" placeholder="Search code or name…" @click.stop />
                 <div
                   v-for="it in filteredItems(index)"
-                  :key="it.name"
+                  :key="it.item_code"
                   class="select-option item-opt"
-                  :class="{ selected: item.item_code === it.name }"
+                  :class="{ selected: item.item_code === it.item_code }"
                   @click="selectItem(index, it)"
                 >
-                  <span class="opt-code">{{ it.name }}</span>
+                  <span class="opt-code">{{ it.item_code }}</span>
                   <span class="opt-name">{{ it.item_name }}</span>
                 </div>
                 <div v-if="filteredItems(index).length === 0" class="select-empty">No items found</div>
@@ -274,7 +274,7 @@ function filteredItems(index) {
   const q = (itemSearch.value[index] || '').toLowerCase()
   if (!q) return items.value
   return items.value.filter(i =>
-    i.name.toLowerCase().includes(q) || (i.item_name || '').toLowerCase().includes(q)
+    i.item_code.toLowerCase().includes(q) || (i.item_name || '').toLowerCase().includes(q)
   )
 }
 
@@ -325,12 +325,12 @@ async function fetchItemPrice(index, itemCode) {
 }
 
 function selectItem(index, it) {
-  newSalesOrder.value.items[index].item_code = it.name
+  newSalesOrder.value.items[index].item_code = it.item_code
   if (it.standard_rate) newSalesOrder.value.items[index].rate = it.standard_rate
   itemDropOpen.value[index] = false
   itemSearch.value[index] = ''
-  fetchItemPrice(index, it.name)
-  fetchItemStock(it.name)
+  fetchItemPrice(index, it.item_code)
+  fetchItemStock(it.item_code)
 }
 
 async function fetchItemStock(itemCode) {
@@ -428,10 +428,10 @@ async function loadFormData() {
   try {
     const [cRes, iRes] = await Promise.all([
       fetch('/api/resource/Customer?fields=["name","customer_name"]&limit_page_length=200', { credentials: 'include' }),
-      fetch('/api/resource/Item?fields=["name","item_name","standard_rate"]&filters=[["disabled","=",0]]&limit_page_length=500', { credentials: 'include' }),
+      fetch('/api/method/live.api.stock.get_catalog?page_size=500', { credentials: 'include' }),
     ])
     customers.value = (await cRes.json()).data || []
-    items.value = (await iRes.json()).data || []
+    items.value = (await iRes.json()).message?.items || []
     localStorage.setItem('live_form_cache', JSON.stringify({
       customers: customers.value,
       items: items.value,

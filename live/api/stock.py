@@ -83,18 +83,30 @@ def _get_allowed_item_groups():
         return []
 
 
+def _get_default_warehouse():
+    """Return the admin-configured default warehouse."""
+    try:
+        wh = frappe.db.get_single_value('Live App Settings', 'default_warehouse')
+        return wh or 'Finished Goods - CAL'
+    except Exception:
+        return 'Finished Goods - CAL'
+
+
 @frappe.whitelist()
 def get_catalog(search=None, warehouse=None, page=0, page_size=50):
     """
     Return items with stock levels for the product catalog.
-    Filtered by allowed_item_groups from Live App Settings when configured.
+    - Only is_sales_item = 1
+    - Stock from the configured default warehouse (Finished Goods - CAL)
+    - Filtered by allowed_item_groups from Live App Settings when configured
     """
     if not frappe.session.user or frappe.session.user == 'Guest':
         frappe.throw('Authentication required', frappe.AuthenticationError)
 
     page = int(page or 0)
     page_size = int(page_size or 50)
-    params = {'limit': page_size, 'offset': page * page_size}
+    wh = warehouse or _get_default_warehouse()
+    params = {'limit': page_size, 'offset': page * page_size, 'warehouse': wh}
     extra_clauses = []
 
     if search:
@@ -119,7 +131,7 @@ def get_catalog(search=None, warehouse=None, page=0, page_size=50):
             COALESCE(SUM(bin.actual_qty), 0) as actual_qty,
             COALESCE(SUM(bin.reserved_qty), 0) as reserved_qty
         FROM `tabItem` item
-        LEFT JOIN `tabBin` bin ON bin.item_code = item.name
+        LEFT JOIN `tabBin` bin ON bin.item_code = item.name AND bin.warehouse = %(warehouse)s
         WHERE item.disabled = 0 AND item.is_sales_item = 1
           {where_extra}
         GROUP BY item.name
